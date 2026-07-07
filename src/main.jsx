@@ -43,7 +43,7 @@ function loginRouteForPathname(pathname) {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/transitflow/">
       <App />
       <Toaster richColors position="top-right" />
     </BrowserRouter>
