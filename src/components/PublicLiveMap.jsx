@@ -297,13 +297,14 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
   const defaultZoom = hasRoute ? 13 : selectedVehicle ? 15 : 13;
 
   return (
-    <div className="relative h-full min-h-[30rem] w-full">
+    <div className="relative h-full min-h-[16rem] sm:min-h-[30rem] w-full">
       <MapContainer
         center={[mapCenter.lat, mapCenter.lng]}
         zoom={defaultZoom}
         className="absolute inset-0"
         scrollWheelZoom
         zoomControl={false}
+        attributionControl={false}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -500,7 +501,7 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
       {nearestStopToUser && userLocation && (
         <div
           style={{ zIndex: 1000 }}
-          className="absolute bottom-4 left-4 max-w-[280px] rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-lifted backdrop-blur-md"
+          className="absolute bottom-2 left-2 max-w-[220px] rounded-2xl border border-border bg-card/95 px-3 py-2 shadow-lifted backdrop-blur-md sm:bottom-4 sm:left-4 sm:max-w-[280px] sm:px-4 sm:py-3"
         >
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
             Nearest stop
@@ -524,7 +525,7 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
       {driverStopInfo && selectedVehicle && (
         <div
           style={{ zIndex: 1000 }}
-          className="absolute bottom-4 right-4 max-w-[260px] rounded-2xl border border-amber-200 bg-amber-50/95 px-4 py-3 shadow-lifted backdrop-blur-md"
+          className="absolute bottom-2 right-2 max-w-[200px] rounded-2xl border border-amber-200 bg-amber-50/95 px-3 py-2 shadow-lifted backdrop-blur-md sm:bottom-4 sm:right-4 sm:max-w-[260px] sm:px-4 sm:py-3"
         >
           <div className="text-[10px] uppercase tracking-[0.18em] text-amber-700/70 font-semibold">
             Bus ETA

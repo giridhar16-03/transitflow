@@ -6,8 +6,6 @@ import {
   Building2,
   CheckCircle2,
   Compass,
-  Globe,
-  KeyRound,
   MapPinned,
   PhoneCall,
   Route,
@@ -21,6 +19,8 @@ import {
 import { Badge, Button, Card, SectionTitle, StatTile } from "../components/ui.jsx";
 import { benefits, contactMethods, heroStats, howItWorks, landingFeatures, publicBuses, routeCards } from "../data/mock";
 import { useLiveFleet } from "../hooks/useLiveFleet";
+import { MapContainer, TileLayer } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 function mapPosition(vehicle, fleet) {
   const latitudes = fleet.map((item) => item.latitude);
@@ -167,28 +167,27 @@ export function LandingPage() {
             </div>
 
             <div className="md:col-span-5 animate-rise-in" style={{ animationDelay: "120ms" }}>
-              <Card className="relative overflow-hidden p-4 sm:p-5 md:p-6">
-                <div className="absolute -left-12 -top-12 h-32 w-32 rounded-full bg-accent/10 blur-3xl animate-glow-pulse" />
-                <div className="absolute -bottom-14 -right-10 h-36 w-36 rounded-full bg-primary/5 blur-3xl animate-drift" />
+              <Card className="relative overflow-hidden p-0">
+                <div className="relative aspect-[3/4] overflow-hidden rounded-[1.75rem] sm:aspect-[4/5]">
+                  <MapContainer
+                    center={[17.7231, 83.3013]}
+                    zoom={13}
+                    className="absolute inset-0 h-full w-full"
+                    scrollWheelZoom={false}
+                    dragging={false}
+                    zoomControl={false}
+                    attributionControl={false}
+                    doubleClickZoom={false}
+                    touchZoom={false}
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  </MapContainer>
 
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1">
-                    <Globe className="h-3.5 w-3.5" /> live city feed
-                  </span>
-                  <span className="whitespace-nowrap">{liveBuses.length} active vehicles</span>
-                </div>
-
-                <div className="relative mt-4 aspect-[3/4] overflow-hidden rounded-[2rem] border border-border bg-sage p-3 sm:aspect-[4/5] sm:p-4">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.28),transparent_24%),radial-gradient(circle_at_80%_25%,rgba(255,255,255,0.16),transparent_22%),radial-gradient(circle_at_40%_80%,rgba(255,255,255,0.1),transparent_24%)]" />
-                  <div className="absolute inset-0 bg-[linear-gradient(120deg,transparent_0%,rgba(255,255,255,0.1)_50%,transparent_100%)] bg-[length:200%_100%] animate-shimmer-sweep opacity-40" />
-                  <svg viewBox="0 0 300 380" className="absolute inset-0 h-full w-full opacity-70">
-                    <path d="M16 70 Q 90 32 150 88 T 284 110" stroke="oklch(0.35 0.04 50)" strokeWidth="1.4" fill="none" />
-                    <path d="M34 210 Q 120 150 180 230 T 290 272" stroke="oklch(0.35 0.04 50)" strokeWidth="1.2" fill="none" opacity="0.6" />
-                    <path d="M18 310 Q 128 250 214 324 T 286 344" stroke="oklch(0.35 0.04 50)" strokeWidth="1.1" fill="none" opacity="0.48" />
-                  </svg>
+                  {/* Gradient overlay */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card/50 via-transparent to-card/20" />
 
                   {liveBuses.map((vehicle, index) => (
-                    <div key={vehicle.id} className="absolute -translate-x-1/2 -translate-y-1/2 animate-float-slow" style={{ ...mapPosition(vehicle, liveBuses), animationDelay: `${index * 0.8}s` }}>
+                    <div key={vehicle.id} className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 animate-float-slow" style={{ ...mapPosition(vehicle, liveBuses), animationDelay: `${index * 0.8}s`, zIndex: 800 }}>
                       <div className="relative grid h-4 w-4 place-items-center rounded-full bg-foreground text-card shadow-soft">
                         <span className="absolute -inset-3 animate-pulse-ring rounded-full bg-foreground/30" />
                         <BusFront className="h-2.5 w-2.5" />
@@ -199,24 +198,9 @@ export function LandingPage() {
                     </div>
                   ))}
 
-                  <div className="absolute left-3 top-3 rounded-2xl bg-card/90 px-3 py-2 shadow-soft backdrop-blur-md sm:left-4 sm:top-4">
-                    <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">current position</div>
-                    <div className="mt-1 text-sm font-medium">OpenStreetMap (Leaflet) ready</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-[1.5rem] bg-secondary/70 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs text-muted-foreground">Public route insight</div>
-                      <div className="font-display text-xl">25P live fleet overview</div>
-                    </div>
-                    <KeyRound className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <Badge>Realtime updates</Badge>
-                    <Badge>ETA calculation</Badge>
-                    <Badge>Route drawing</Badge>
+                  <div className="absolute left-3 top-3 rounded-2xl bg-card/90 px-3 py-2 shadow-soft backdrop-blur-md sm:left-4 sm:top-4" style={{ zIndex: 800 }}>
+                    <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">live tracking</div>
+                    <div className="mt-1 text-sm font-medium">Visakhapatnam</div>
                   </div>
                 </div>
               </Card>

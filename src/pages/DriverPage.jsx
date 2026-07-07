@@ -442,136 +442,101 @@ export function DriverPage() {
     ) : (
     <div className="min-h-screen bg-background bg-grain">
       <header className="border-b border-border/80 bg-background/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
           <Button variant="ghost" to="/" className="px-0 hover:bg-transparent">
             <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft">
               <BusFront className="h-4 w-4" />
             </div>
-            <span className="font-display text-lg">TransitFlow Driver</span>
+            <span className="hidden font-display text-lg sm:inline">TransitFlow Driver</span>
+            <span className="font-display text-base sm:hidden">Driver</span>
           </Button>
           {currentUser ? <ProfileMenu user={currentUser} onSignOut={handleSignOut} /> : null}
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-10 md:py-14">
-        <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="space-y-6">
-            <Card className="p-5">
-              <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Welcome</div>
-              <div className="mt-2 font-display text-3xl leading-tight md:text-4xl">
-                Welcome, {driverDisplayName}
-              </div>
-            </Card>
+      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-10">
 
-            <Badge className="gap-2 px-4 py-2 text-[11px] uppercase tracking-[0.22em]"><Play className="h-3 w-3" /> driver dashboard</Badge>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                { title: "Trip status", value: tripStatus },
-                { title: "Bus number", value: driverBusNumber },
-                { title: "Bus code", value: driverBusCode },
-                { title: "Driver", value: driverDisplayName },
-              ].map((item) => (
-                <Card key={item.title} className="p-4">
-                  <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{item.title}</div>
-                  <div className="mt-2 text-sm font-medium">{item.value}</div>
-                </Card>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button size="lg" onClick={startTrip} disabled={tripStatus === "Active"}>
-                <Play className="h-4 w-4" /> Start trip
-              </Button>
-              <Button size="lg" variant="outline" onClick={endTrip} disabled={tripStatus !== "Active"}>
-                <Square className="h-4 w-4" /> End trip
-              </Button>
-            </div>
-
-            <Card className="p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Trip history</div>
-                  <div className="mt-2 font-display text-2xl">Recent trips</div>
-                </div>
-                <Badge>{tripHistory.length} saved</Badge>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {tripHistory.length > 0 ? (
-                  tripHistory.map((trip) => (
-                    <div key={trip.id} className="rounded-2xl border border-border bg-card px-4 py-3 shadow-soft">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="font-medium">{trip.route}</div>
-                          <div className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                            {trip.busNumber} · {trip.busCode}
-                          </div>
-                        </div>
-                        <Badge variant="outline">{trip.status}</Badge>
-                      </div>
-                      <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                        <div>Started: {trip.startedAt}</div>
-                        <div>Ended: {trip.endedAt}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-4 py-5 text-sm text-muted-foreground">
-                    No trip history yet. Start and end a trip to save it here.
-                  </div>
-                )}
-              </div>
-            </Card>
-
+        {/* ── Welcome + Controls ── */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-xl text-foreground sm:text-2xl">Hi, {driverDisplayName}</h1>
+            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{tripRouteName}</p>
           </div>
+          <div className="flex gap-2">
+            <Button onClick={startTrip} disabled={tripStatus === "Active"}>
+              <Play className="h-4 w-4" /> Start trip
+            </Button>
+            <Button variant="outline" onClick={endTrip} disabled={tripStatus !== "Active"}>
+              <Square className="h-4 w-4" /> End trip
+            </Button>
+          </div>
+        </div>
 
-          <Card className="overflow-hidden p-5 md:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Current trip status</div>
-                <div className="mt-2 font-display text-4xl">{tripStatus}</div>
-              </div>
-              <Badge>{positionLabel}</Badge>
+        {/* ── Status grid ── */}
+        <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          <Card className="p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Status</div>
+            <div className="mt-1.5 flex items-center gap-2 text-sm font-medium">
+              <span className={`h-2 w-2 rounded-full ${tripStatus === "Active" ? "bg-green-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+              {tripStatus}
             </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric label="Bus number" value={driverBusNumber} />
-              <Metric label="Bus code" value={driverBusCode} />
-              <Metric label="Start time" value={startTime ? startTime.toLocaleTimeString() : "Not started"} />
-              <Metric label="End time" value={endTime ? endTime.toLocaleTimeString() : "Waiting"} />
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Metric label="Last location" value={`${lastLocation.latitude.toFixed(4)}, ${lastLocation.longitude.toFixed(4)}`} />
-              <Metric label="Driver row" value={driverRecord?.id ? "Live from database" : "Pending"} />
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="rounded-[1.8rem] border border-border bg-sage p-5 shadow-soft">
-                <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">GPS status</div>
-                <div className="mt-2 font-display text-3xl">{tripStatus === "Active" ? "Tracking" : "Idle"}</div>
-                <div className="mt-2 text-sm text-muted-foreground">{positionLabel}</div>
-                <div className="mt-4 rounded-2xl bg-card p-3 text-sm shadow-soft">
-                  Last location: {lastLocation.latitude.toFixed(4)}, {lastLocation.longitude.toFixed(4)}
-                </div>
-              </div>
-
-              <div className="rounded-[1.8rem] border border-border bg-sage p-5 shadow-soft">
-                <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Trip snapshot</div>
-                <div className="mt-2 font-display text-3xl">{tripStatus}</div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {tripStatus === "Active" ? `Trip is running with live GPS capture for ${driverDisplayName}.` : "Start the trip to begin live tracking."}
-                </div>
-                <div className="mt-4 grid gap-2 text-sm">
-                  <div className="rounded-2xl bg-card px-4 py-3 shadow-soft">Start: {startTime ? startTime.toLocaleTimeString() : "Not started"}</div>
-                  <div className="rounded-2xl bg-card px-4 py-3 shadow-soft">End: {endTime ? endTime.toLocaleTimeString() : "Waiting"}</div>
-                </div>
-              </div>
-            </div>
-
+          </Card>
+          <Card className="p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Bus</div>
+            <div className="mt-1.5 text-sm font-medium">{driverBusNumber} · {driverBusCode}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">GPS</div>
+            <div className="mt-1.5 text-sm font-medium">{positionLabel}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Started</div>
+            <div className="mt-1.5 text-sm font-medium">{startTime ? startTime.toLocaleTimeString() : "—"}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Ended</div>
+            <div className="mt-1.5 text-sm font-medium">{endTime ? endTime.toLocaleTimeString() : "—"}</div>
           </Card>
         </div>
+
+        {/* ── Live info ── */}
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <Card className="p-5">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Location</div>
+            <div className="mt-2 font-display text-lg sm:text-xl">
+              {lastLocation.latitude.toFixed(4)}, {lastLocation.longitude.toFixed(4)}
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <span className={`h-1.5 w-1.5 rounded-full ${tripStatus === "Active" ? "bg-green-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+              {tripStatus === "Active" ? "Tracking live" : "GPS idle"}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Trip history</div>
+              <Badge>{tripHistory.length} saved</Badge>
+            </div>
+            <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
+              {tripHistory.length > 0 ? (
+                tripHistory.map((trip) => (
+                  <div key={trip.id} className="flex items-center justify-between gap-3 rounded-xl bg-secondary/60 px-3 py-2 text-sm">
+                    <div>
+                      <span className="font-medium">{trip.busCode}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{trip.startedAt} → {trip.endedAt}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">{trip.status}</Badge>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-border px-4 py-4 text-center text-sm text-muted-foreground">
+                  No trips yet
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
       </main>
     </div>
     )

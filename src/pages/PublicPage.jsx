@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   BusFront, MapPinned, Search, Route, Radio,
   Loader2, ChevronRight, Navigation, Clock,
-  AlertCircle, Sparkles, Signal, MapPin
+  AlertCircle, Signal, MapPin
 } from "lucide-react";
 import { Badge, Button, Card, Input, Label } from "../components/ui.jsx";
 import { PublicLiveMap } from "../components/PublicLiveMap.jsx";
@@ -75,12 +75,6 @@ export function PublicPage() {
           .select("role, display_name")
           .eq("user_id", nextUser.id)
           .maybeSingle();
-
-        if (accountRow?.role === "public-driver") {
-          // This user is a driver — redirect them to the driver page
-          navigate(getDashboardPath("public-driver", nextUser.id), { replace: true });
-          return;
-        }
 
         // If commuter profile is incomplete (no display name), redirect to setup
         if (accountRow && !accountRow.display_name) {
@@ -342,7 +336,7 @@ export function PublicPage() {
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
@@ -372,28 +366,22 @@ export function PublicPage() {
 
       {/* ── Hero strip ── */}
       <div className="bg-ambient border-b border-border/40">
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-accent-foreground" />
-              <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                {currentUser ? `Welcome, ${getPreferredDisplayName(currentUser)}` : "TransitFlow"}
-              </span>
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-display text-xl text-foreground sm:text-2xl">
+                {currentUser ? `Hi, ${getPreferredDisplayName(currentUser)}` : "TransitFlow"}
+              </h1>
+              <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">Track buses across Visakhapatnam</p>
             </div>
-            <h1 className="font-display text-3xl text-gradient-warm md:text-4xl">
-              Vizag APSRTC
-            </h1>
-            <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Browse all 36 bus routes, view their stops on a live map, and track your nearest bus stop in real time.
-            </p>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl px-6 py-8 md:py-10">
+      <main className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-8 md:py-10">
 
         {/* ── Tab bar ── */}
-        <div className="mb-8 flex gap-2 rounded-2xl border border-border bg-secondary/50 p-1.5 w-fit">
+        <div className="mb-5 flex gap-1 rounded-2xl border border-border bg-secondary/50 p-1 w-full sm:w-fit sm:mb-8 sm:gap-2 sm:p-1.5">
           {[
             { id: "routes", icon: Route,  label: "Browse Routes" },
             { id: "live",   icon: Radio,  label: "Live Tracking" },
@@ -402,7 +390,7 @@ export function PublicPage() {
               key={id}
               onClick={() => setActiveTab(id)}
               className={[
-                "flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-all duration-200",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-200 sm:flex-initial sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm",
                 activeTab === id
                   ? "bg-card text-foreground shadow-soft"
                   : "text-muted-foreground hover:text-foreground",
@@ -421,7 +409,7 @@ export function PublicPage() {
 
         {/* ══════════════════ ROUTES TAB ══════════════════ */}
         {activeTab === "routes" && (
-          <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[420px_1fr]">
 
             {/* Left column */}
             <div className="space-y-4">
@@ -582,7 +570,7 @@ export function PublicPage() {
                   </div>
                 )}
 
-                <div className="h-[calc(100vh-340px)] min-h-[26rem]">
+                <div className="h-[50vh] min-h-[18rem] sm:h-[calc(100vh-340px)] sm:min-h-[26rem]">
                   <PublicLiveMap
                     selectedVehicle={null}
                     userLocation={userLocation}
@@ -620,7 +608,7 @@ export function PublicPage() {
 
         {/* ══════════════════ LIVE TRACKING TAB ══════════════════ */}
         {activeTab === "live" && (
-          <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[420px_1fr]">
 
             {/* Left column */}
             <div className="space-y-4">
@@ -706,7 +694,7 @@ export function PublicPage() {
               </div>
 
               {/* Bus cards / Routes cards list */}
-              <div className="max-h-[calc(100vh-400px)] min-h-[18rem] space-y-3 overflow-y-auto pr-1">
+              <div className="max-h-[40vh] min-h-[10rem] space-y-3 overflow-y-auto pr-1 sm:max-h-[calc(100vh-400px)] sm:min-h-[18rem]">
                 {displayItems.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-5 py-8 text-center">
                     <BusFront className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
@@ -840,7 +828,7 @@ export function PublicPage() {
                   </div>
                 )}
 
-                <div className="h-[calc(100vh-340px)] min-h-[26rem]">
+                <div className="h-[50vh] min-h-[18rem] sm:h-[calc(100vh-340px)] sm:min-h-[26rem]">
                   <PublicLiveMap
                     selectedVehicle={selectedVehicle}
                     userLocation={userLocation}
@@ -854,49 +842,49 @@ export function PublicPage() {
 
               {/* Selected bus info strip */}
               {(selectedVehicle || liveRouteInfo) && (
-                <div className="flex flex-wrap items-center gap-3 animate-fade-up">
-                  <div className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                    <BusFront className="h-3 w-3" /> {selectedVehicle ? selectedVehicle.busNumber : liveRouteInfo.routeNumber}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 animate-fade-up">
+                  <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+                    <BusFront className="h-3.5 w-3.5" /> {selectedVehicle ? selectedVehicle.busNumber : liveRouteInfo.routeNumber}
                   </div>
                   {selectedVehicle ? (
                     <>
                       {userToBusDistance != null && (
-                        <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" /> {userToBusDistance.toFixed(2)} km away
+                        <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+                          <MapPin className="h-3 w-3" /> {userToBusDistance.toFixed(2)} km
                         </div>
                       )}
                       {selectedVehicle.lastSeen && (
-                        <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-muted-foreground">
+                        <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
                           <Clock className="h-3 w-3" />
-                          Updated {new Date(selectedVehicle.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(selectedVehicle.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </div>
                       )}
                       <button
                         onClick={() => setFollowBus((p) => !p)}
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors shadow-sm ${
                           followBus
                             ? 'border-green-200 bg-green-50 text-green-700'
-                            : 'border-border bg-secondary/60 text-muted-foreground'
+                            : 'border-border bg-card text-muted-foreground hover:bg-secondary'
                         }`}
                       >
-                        <Navigation className="h-3 w-3" /> {followBus ? 'Following' : 'Follow bus'}
+                        <Navigation className="h-3 w-3" /> {followBus ? 'Following' : 'Follow'}
                       </button>
                     </>
                   ) : (
-                    <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" /> No active bus — viewing route only
+                    <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+                      <Route className="h-3 w-3" /> Route view
                     </div>
                   )}
                   {liveRouteStops.length > 0 && (
-                    <div className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
+                    <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
                       <MapPin className="h-3 w-3" /> {liveRouteStops.length} stops
                     </div>
                   )}
                   <button
                     onClick={() => { setSelectedBusId(""); setFollowBus(true); }}
-                    className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="shrink-0 ml-auto flex items-center gap-1.5 rounded-full bg-secondary/80 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                   >
-                    Deselect
+                    Clear selection
                   </button>
                 </div>
               )}

@@ -648,12 +648,12 @@ export function AuthPage() {
   /* ═══════════════════════════════════════════════════════════════════════════ */
 
   return (
-    <div className="min-h-screen bg-background bg-grain px-4 py-4 md:px-6 md:py-5 lg:px-8">
+    <div className="min-h-screen bg-background bg-grain px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 lg:px-8">
       <div className={`mx-auto grid min-h-[calc(100vh-2rem)] gap-4 ${isLoginMode ? "max-w-2xl" : "max-w-6xl lg:grid-cols-[0.95fr_1.05fr]"}`}>
 
         {/* ─── Left panel (register mode only) ─── */}
         {!isLoginMode ? (
-          <aside className="relative overflow-hidden rounded-3xl border border-border bg-warm p-6 opacity-0 shadow-soft animate-rise-in md:p-7" style={{ animationDelay: "40ms" }}>
+          <aside className="relative overflow-hidden rounded-3xl border border-border bg-warm p-4 opacity-0 shadow-soft animate-rise-in sm:p-6 md:p-7" style={{ animationDelay: "40ms" }}>
             <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-card/25 blur-3xl" />
             <LinkBack />
 
@@ -661,7 +661,7 @@ export function AuthPage() {
               <Badge className="gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em]">
                 <Compass className="h-3 w-3" /> secure access control
               </Badge>
-              <h1 className="mt-4 font-display text-4xl leading-[1.05] tracking-tight text-foreground md:text-5xl">
+              <h1 className="mt-4 font-display text-2xl leading-[1.05] tracking-tight text-foreground sm:text-4xl md:text-5xl">
                 Sign in once.
                 <br />
                 Route by role.
