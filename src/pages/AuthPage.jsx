@@ -298,9 +298,7 @@ export function AuthPage() {
 
         const driverPayload = {
           user_id: currentUser.id,
-          created_by: currentUser.id,
           driver_key_id: driverKeyId,
-          name: displayName,
           display_name: displayName,
           email,
           age: numericAge,
@@ -315,9 +313,8 @@ export function AuthPage() {
           // Fallback with fewer columns
           const fallbackPayload = {
             user_id: currentUser.id,
-            created_by: currentUser.id,
             driver_key_id: driverKeyId,
-            name: displayName,
+            display_name: displayName,
             age: numericAge,
             bus_number: busNumber,
             email,
