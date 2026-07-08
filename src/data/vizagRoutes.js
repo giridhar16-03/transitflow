@@ -221,11 +221,30 @@ function chainWays(wayMembers, ways, nodes) {
 
 // ─── Main fetch function ──────────────────────────────────────────────────────
 
-const routeCache = new Map();
+const ROUTE_CACHE_KEY = 'transitflow_route_cache';
+
+function loadRouteCache() {
+  try {
+    const data = localStorage.getItem(ROUTE_CACHE_KEY);
+    return data ? new Map(JSON.parse(data)) : new Map();
+  } catch (e) {
+    return new Map();
+  }
+}
+
+function saveRouteCache(cacheMap) {
+  try {
+    localStorage.setItem(ROUTE_CACHE_KEY, JSON.stringify(Array.from(cacheMap.entries())));
+  } catch (e) {
+    // Ignore quota errors
+  }
+}
+
+const routeCache = loadRouteCache();
 
 /**
  * Fetch route polyline + bus stops for an OSM route relation.
- * Results are cached in-memory so repeated clicks are instant.
+ * Results are cached persistently in localStorage so repeated clicks (even across sessions) are instant.
  *
  * Returns { coordinates: [[lat,lon],...], stops: [{ name, lat, lon },…] }
  */
@@ -312,12 +331,32 @@ export async function fetchRouteGeometry(osmRelationId) {
 
   const result = { coordinates, stops };
   routeCache.set(osmRelationId, result);
+  saveRouteCache(routeCache);
   return result;
 }
 
 // ─── OSRM walking route ───────────────────────────────────────────────────────
 
-const walkCache = new Map();
+const WALK_CACHE_KEY = 'transitflow_walk_cache';
+
+function loadWalkCache() {
+  try {
+    const data = localStorage.getItem(WALK_CACHE_KEY);
+    return data ? new Map(JSON.parse(data)) : new Map();
+  } catch (e) {
+    return new Map();
+  }
+}
+
+function saveWalkCache(cacheMap) {
+  try {
+    localStorage.setItem(WALK_CACHE_KEY, JSON.stringify(Array.from(cacheMap.entries())));
+  } catch (e) {
+    // Ignore quota errors
+  }
+}
+
+const walkCache = loadWalkCache();
 
 /**
  * Fetch a real walking route between two coordinates using OSRM.
@@ -347,6 +386,7 @@ export async function fetchWalkingRoute(fromLat, fromLon, toLat, toLon) {
       durationS: Math.round(route.duration),
     };
     walkCache.set(key, result);
+    saveWalkCache(walkCache);
     return result;
   } catch {
     return null;
