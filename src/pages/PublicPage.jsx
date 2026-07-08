@@ -132,8 +132,10 @@ export function PublicPage() {
     } catch (err) {
       const msg = err.message || "Failed to load route.";
       setRouteError(
-        msg.includes("429") || msg.includes("unavailable")
-          ? "Server is busy — please wait a moment and try again. Retrying automatically…"
+        msg.includes("429") || msg.includes("unavailable") || msg.includes("mirrors")
+          ? "Map data servers are busy — please wait a moment and try again."
+          : msg.includes("Failed to fetch") || msg.includes("NetworkError")
+          ? "Network error loading route data. Please check your connection and try again."
           : msg,
       );
     } finally {

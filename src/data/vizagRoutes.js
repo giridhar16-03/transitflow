@@ -70,39 +70,55 @@ export function findRouteByBusCode(busCode) {
 
 // ─── Rate-limited Overpass fetcher ────────────────────────────────────────────
 // Overpass allows ~1 req/s for anonymous users. We enforce a minimum gap and
-// retry on 429 with exponential back-off.
+// retry on 429 with exponential back-off. Multiple mirrors are used for
+// failover in case the primary server is unavailable or blocks cloud IPs.
+
+const OVERPASS_MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+];
 
 let _lastOverpassRequest = 0;
 const OVERPASS_MIN_GAP_MS = 1200;   // 1.2 s between requests
-const OVERPASS_MAX_RETRIES = 4;
-const OVERPASS_BASE_BACKOFF_MS = 3000;
+const OVERPASS_MAX_RETRIES = 3;
+const OVERPASS_BASE_BACKOFF_MS = 2000;
 
 async function overpassFetch(query) {
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+  const encodedQuery = encodeURIComponent(query);
 
-  for (let attempt = 0; attempt < OVERPASS_MAX_RETRIES; attempt++) {
-    // Enforce minimum gap between requests
-    const gap = Date.now() - _lastOverpassRequest;
-    if (gap < OVERPASS_MIN_GAP_MS) {
-      await sleep(OVERPASS_MIN_GAP_MS - gap);
+  for (const mirror of OVERPASS_MIRRORS) {
+    const url = `${mirror}?data=${encodedQuery}`;
+
+    for (let attempt = 0; attempt < OVERPASS_MAX_RETRIES; attempt++) {
+      // Enforce minimum gap between requests
+      const gap = Date.now() - _lastOverpassRequest;
+      if (gap < OVERPASS_MIN_GAP_MS) {
+        await sleep(OVERPASS_MIN_GAP_MS - gap);
+      }
+      _lastOverpassRequest = Date.now();
+
+      try {
+        const res = await fetch(url);
+
+        if (res.status === 429 || res.status === 503) {
+          const backoff = OVERPASS_BASE_BACKOFF_MS * Math.pow(2, attempt);
+          console.warn(`Overpass ${res.status} from ${mirror} — retrying in ${backoff / 1000}s (attempt ${attempt + 1})`);
+          await sleep(backoff);
+          continue;
+        }
+
+        if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
+        return res.json();
+      } catch (err) {
+        // Network error (CORS, timeout, etc.) — try next mirror
+        console.warn(`Overpass fetch failed from ${mirror}: ${err.message}`);
+        break; // break retry loop, try next mirror
+      }
     }
-    _lastOverpassRequest = Date.now();
-
-    const res = await fetch(url);
-
-    if (res.status === 429 || res.status === 503) {
-      // Rate limited or server busy — back off exponentially
-      const backoff = OVERPASS_BASE_BACKOFF_MS * Math.pow(2, attempt);
-      console.warn(`Overpass ${res.status} — retrying in ${backoff / 1000}s (attempt ${attempt + 1})`);
-      await sleep(backoff);
-      continue;
-    }
-
-    if (!res.ok) throw new Error(`Overpass API error: ${res.status}`);
-    return res.json();
   }
 
-  throw new Error('Overpass API unavailable after retries. Please try again in a moment.');
+  throw new Error('All Overpass API mirrors unavailable. Please try again in a moment.');
 }
 
 function sleep(ms) {
