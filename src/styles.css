@@ -43,7 +43,19 @@
   display: none !important;
 }
 
+/* Hide the default Leaflet attribution bar to prevent visual glitch below map */
+.leaflet-control-attribution {
+  display: none !important;
+}
 
+/* Utility: hide scrollbar but keep scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 @custom-variant dark (&:is(.dark *));
 
