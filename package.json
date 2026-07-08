@@ -6,7 +6,7 @@
     "dev": "concurrently -n client,server -c cyan,magenta \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "vite",
     "dev:server": "nodemon --watch server --ext js,json --exec node server/index.js",
-    "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.html', 'dist/404.html')\"",
+    "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js"
   },
