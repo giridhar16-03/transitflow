@@ -1,12 +1,18 @@
 const AUTH_STORAGE_KEYS = {
   "public-user": ["transitflow:login:public-user", "transitflow:register:public-user"],
   "public-driver": ["transitflow:login:public-driver", "transitflow:register:public-driver"],
+  "private-admin": ["transitflow:login:private-admin", "transitflow:register:private-admin"],
+  "private-driver": ["transitflow:login:private-driver", "transitflow:register:private-driver"],
+  "private-user": ["transitflow:login:private-user", "transitflow:register:private-user"],
   private: ["transitflow:login:private", "transitflow:register:private"],
 };
 
 const ROLE_PATHS = {
   "public-user": "/public",
   "public-driver": "/driver",
+  "private-admin": "/institution",
+  "private-driver": "/driver",
+  "private-user": "/private",
   private: "/institution",
 };
 
@@ -17,19 +23,24 @@ function normalizeUserId(userId) {
 export function normalizeAuthRole(role) {
   if (role === "driver" || role === "public-driver") return "public-driver";
   if (role === "public_user" || role === "public-user") return "public-user";
-  if (role === "private") return "private";
+  if (role === "private-admin" || role === "private_institution_admin") return "private-admin";
+  if (role === "private-driver") return "private-driver";
+  if (role === "private-user" || role === "private_user") return "private-user";
+  if (role === "private") return "private-admin"; // Legacy fallback
   return "public-user";
 }
 
 export function toProfileRole(role) {
-  if (normalizeAuthRole(role) === "public-driver") return "driver";
-  if (normalizeAuthRole(role) === "private") return "private_institution_admin";
+  const norm = normalizeAuthRole(role);
+  if (norm === "public-driver" || norm === "private-driver") return "driver";
+  if (norm === "private-admin") return "private_institution_admin";
   return "public_user";
 }
 
 export function fromProfileRole(role) {
-  if (role === "driver") return "public-driver";
-  if (role === "private_institution_admin" || role === "private_institution_user") return "private";
+  // Note: 'driver' is ambiguous without mode, we handle that higher up where mode is known
+  if (role === "driver") return "public-driver"; 
+  if (role === "private_institution_admin" || role === "private_institution_user") return "private-admin";
   return "public-user";
 }
 

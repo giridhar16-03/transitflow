@@ -16,11 +16,12 @@ ALTER TABLE drivers ADD COLUMN IF NOT EXISTS driving_license_number text;
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS name text;
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS trip_status text DEFAULT 'idle';
 
--- 2. Update the public_drivers view to include bus_number and trip_status
+-- 2. Update the public_drivers view to include bus_number and trip_status, and EXCLUDE private drivers
 DROP VIEW IF EXISTS public_drivers;
 CREATE VIEW public_drivers AS
 SELECT id, display_name, bus_code, bus_number, latitude, longitude, last_seen, trip_status
-FROM drivers;
+FROM drivers
+WHERE institution_id IS NULL;
 
 -- 3. Grant SELECT on the public_drivers view to both authenticated and anon users
 GRANT SELECT ON public_drivers TO anon;
@@ -30,15 +31,23 @@ GRANT SELECT ON public_drivers TO authenticated;
 -- Remove the old restrictive select-own policy
 DROP POLICY IF EXISTS drivers_select_own ON drivers;
 
--- Allow authenticated users to see ALL driver rows (needed for commuter public page)
+-- Allow authenticated users to see public drivers OR drivers in their institution
 DROP POLICY IF EXISTS drivers_select_all_authenticated ON drivers;
 CREATE POLICY drivers_select_all_authenticated ON drivers
-  FOR SELECT USING (auth.role() = 'authenticated');
+  FOR SELECT USING (
+    institution_id IS NULL 
+    OR 
+    institution_id IN (SELECT id FROM institutions WHERE admin_user_id = auth.uid() OR owner_user_id = auth.uid())
+    OR 
+    institution_id IN (SELECT institution_id FROM institution_users WHERE user_id = auth.uid())
+    OR
+    user_id = auth.uid() -- A driver can always see their own row
+  );
 
--- Allow anonymous users (unauthenticated commuters) to also read driver rows
+-- Allow anonymous users (unauthenticated commuters) to read ONLY public driver rows
 DROP POLICY IF EXISTS drivers_select_anon ON drivers;
 CREATE POLICY drivers_select_anon ON drivers
-  FOR SELECT TO anon USING (true);
+  FOR SELECT TO anon USING (institution_id IS NULL);
 
 -- 5. Make sure the trips table exists with the right columns
 CREATE TABLE IF NOT EXISTS trips (
@@ -97,4 +106,59 @@ CREATE POLICY auth_accounts_own ON auth_accounts
   FOR ALL USING (auth.uid() = user_id);
 
 -- 7. Enable realtime for drivers table so PublicPage gets live updates
-ALTER PUBLICATION supabase_realtime ADD TABLE drivers;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'drivers'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE drivers;
+  END IF;
+END
+$$;
+
+-- 8. Add institution_id and route_id to trips table for private tracking history
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS institution_id uuid REFERENCES institutions(id);
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS route_id uuid REFERENCES routes(id);
+
+-- 9. Redefine get_private_buses to ONLY return buses with an active trip
+CREATE OR REPLACE FUNCTION get_private_buses(p_inst_code text, p_access_code text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_inst_id uuid;
+  v_result json;
+BEGIN
+  -- Validate credentials
+  SELECT id INTO v_inst_id
+  FROM institutions
+  WHERE institution_code = p_inst_code AND access_code = p_access_code;
+
+  IF v_inst_id IS NULL THEN
+    RETURN '[]'::json; -- Return empty array if invalid credentials
+  END IF;
+
+  -- Fetch ONLY drivers that are on an active trip and their routes for this institution
+  SELECT COALESCE(json_agg(
+    json_build_object(
+      'id', d.id,
+      'display_name', d.display_name,
+      'bus_code', d.bus_code,
+      'bus_number', d.bus_number,
+      'latitude', d.latitude,
+      'longitude', d.longitude,
+      'last_seen', d.last_seen,
+      'route_name', r.route_name,
+      'route_stops', r.stops
+    )
+  ), '[]'::json) INTO v_result
+  FROM drivers d
+  LEFT JOIN routes r ON d.route_id = r.id
+  WHERE d.institution_id = v_inst_id 
+    AND d.trip_status = 'active';
+
+  RETURN v_result;
+END;
+$$;

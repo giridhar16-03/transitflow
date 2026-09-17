@@ -110,7 +110,7 @@ export function LandingPage() {
             </nav>
 
             <div className="hidden items-center gap-2 lg:flex">
-              
+
               <Button variant="ghost" size="sm" to="/auth?mode=login">Login</Button>
               <Button size="sm" to="/auth?mode=register&role=public">Register</Button>
             </div>
@@ -157,7 +157,10 @@ export function LandingPage() {
                   Get started <ArrowRight className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" size="lg" to="/public" className="w-full sm:w-auto">
-                  Explore live tracking
+                  Public tracking
+                </Button>
+                <Button variant="outline" size="lg" to="/private-tracking" className="w-full sm:w-auto">
+                  Private tracking
                 </Button>
               </div>
 

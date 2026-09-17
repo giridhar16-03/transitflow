@@ -3,6 +3,8 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { setupTelegramBot } from "./telegramBot.js";
+import VIZAG_ROUTES from "../src/data/vizagRoutes.js";
 
 dotenv.config();
 
@@ -33,6 +35,29 @@ const db = {
     trip: 1,
   },
 };
+
+// Seed Vizag routes into mock database
+VIZAG_ROUTES.forEach((route, index) => {
+  // Add to routes
+  db.routes.push({
+    id: `route-vizag-${index + 1}`,
+    publicMode: true,
+    routeName: route.routeName,
+    startLocation: route.routeName.split("to")[0]?.trim() || "Unknown",
+    endLocation: route.routeName.split("to")[1]?.trim() || "Unknown",
+  });
+
+  // Add a generic active vehicle for each route so the bot and API recognize them
+  db.vehicles.push({
+    id: `veh-vizag-${index + 1}`,
+    mode: "public",
+    busNumber: route.routeNumber,
+    busCode: route.routeNumber,
+    vehicleNumber: `AP-31-TR-${1000 + index}`,
+    routeName: route.routeName,
+    status: "Active",
+  });
+});
 
 app.use(cors({ origin: clientOrigins, credentials: true }));
 app.use(express.json());
@@ -358,3 +383,6 @@ app.post("/api/driver/end-trip", (request, response) => {
 app.listen(port, () => {
   console.log(`TransitFlow API listening on http://localhost:${port}`);
 });
+
+// Initialize Telegram Bot
+setupTelegramBot(db);

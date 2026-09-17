@@ -2,27 +2,31 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 /**
- * Returns only drivers whose trip_status is 'active' (i.e. currently running a trip).
+ * Returns only drivers whose trip_status is 'active' and belong to the given institutionId.
  * Subscribes to realtime updates on the drivers table so the list stays current.
  */
-export function usePublicDrivers() {
+export function usePrivateDrivers(institutionId) {
   const [drivers, setDrivers] = useState([]);
   const channelRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
 
+    if (!institutionId) {
+      setDrivers([]);
+      return;
+    }
+
     const fetchActive = async () => {
-      // Only fetch drivers that are actively running a trip and have no institution_id (public)
       const { data, error } = await supabase
         .from('drivers')
         .select('id, display_name, bus_code, bus_number, latitude, longitude, last_seen, trip_status, institution_id')
         .eq('trip_status', 'active')
-        .is('institution_id', null)
+        .eq('institution_id', institutionId)
         .order('last_seen', { ascending: false });
 
       if (error) {
-        console.error('usePublicDrivers fetch error:', error);
+        console.error('usePrivateDrivers fetch error:', error);
         return;
       }
       if (mounted) setDrivers(data || []);
@@ -30,14 +34,13 @@ export function usePublicDrivers() {
 
     fetchActive();
 
-    // Subscribe to realtime changes on the drivers table
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
 
-    const chan = supabase.channel('drivers:active-trips')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, (payload) => {
+    const chan = supabase.channel(`drivers:private:${institutionId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers', filter: `institution_id=eq.${institutionId}` }, (payload) => {
         const evt = payload.eventType || payload.event;
         const raw = payload.new || payload.record;
         if (!raw) return;
@@ -55,23 +58,19 @@ export function usePublicDrivers() {
         };
 
         setDrivers(prev => {
-          // Explicitly enforce separation: Ignore any driver that belongs to a private institution
-          if (record.institution_id !== null) return prev;
+          if (record.institution_id !== institutionId) return prev;
 
           const isActive = record.trip_status === 'active';
           const exists = prev.some(d => d.id === record.id);
 
           if (evt === 'DELETE' || !isActive) {
-            // Remove from list if deleted or no longer active
             return prev.filter(d => d.id !== record.id);
           }
 
           if (exists) {
-            // Update existing entry
             return prev.map(d => d.id === record.id ? { ...d, ...record } : d);
           }
 
-          // New active driver — add to list
           return [...prev, record];
         });
       })
@@ -83,9 +82,9 @@ export function usePublicDrivers() {
       mounted = false;
       if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
-  }, []);
+  }, [institutionId]);
 
   return drivers;
 }
 
-export default usePublicDrivers;
+export default usePrivateDrivers;

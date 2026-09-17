@@ -8,6 +8,7 @@ const DriverPage = lazy(() => import("./pages/DriverPage").then((module) => ({ d
 const InstitutionPage = lazy(() => import("./pages/InstitutionPage").then((module) => ({ default: module.InstitutionPage })));
 const AdminDebug = lazy(() => import("./pages/AdminDebug").then((module) => ({ default: module.AdminDebug })));
 const ProfilePage = lazy(() => import("./pages/ProfilePage").then((module) => ({ default: module.ProfilePage })));
+const PrivatePage = lazy(() => import("./pages/PrivatePage").then((module) => ({ default: module.PrivatePage })));
 
 export default function App() {
   return (
@@ -23,7 +24,8 @@ export default function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/public/:userId?" element={<PublicPage />} />
         <Route path="/driver/:userId?" element={<DriverPage />} />
-        <Route path="/institution" element={<InstitutionPage />} />
+        <Route path="/institution/:userId?" element={<InstitutionPage />} />
+        <Route path="/private/:userId?" element={<PrivatePage />} />
         <Route path="/admin-debug" element={<AdminDebug />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/tracking" element={<Navigate to="/public" replace />} />

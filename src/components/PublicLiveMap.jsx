@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
-import { fetchWalkingRoute } from "../data/vizagRoutes.js";
+import { fetchWalkingRoute, fetchDrivingRoute } from "../data/vizagRoutes.js";
 
 const VIZAG_CENTER = { lat: 17.7384, lng: 83.2510 };
 
@@ -90,19 +90,29 @@ function MapRef({ onMap }) {
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 function stopIcon(isNearest) {
-  const size = isNearest ? 22 : 14;
-  const bg = isNearest ? '#1d4ed8' : '#3b82f6';
-  const border = isNearest ? 3 : 2;
+  const size = isNearest ? 26 : 20;
+  const bg = isNearest ? '#1d4ed8' : '#ffffff';
+  const color = isNearest ? '#ffffff' : '#3b82f6';
+  const border = isNearest ? '#ffffff' : '#3b82f6';
+
   return L.divIcon({
     className: '',
     html: `<div style="
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width:${size}px;height:${size}px;
       border-radius:50%;
       background:${bg};
-      border:${border}px solid #fff;
+      border:2px solid ${border};
+      color:${color};
       box-shadow:0 1px 6px rgba(0,0,0,0.35);
       ${isNearest ? 'outline:3px solid #bfdbfe;' : ''}
-    "></div>`,
+    ">
+      <svg xmlns="http://www.w3.org/2000/svg" width="${isNearest ? 14 : 12}" height="${isNearest ? 14 : 12}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>
+      </svg>
+    </div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -149,9 +159,9 @@ const userIcon = L.divIcon({
 
 // ─── Map Control Buttons ─────────────────────────────────────────────────────
 
-const btnBase = "flex items-center justify-center w-9 h-9 rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-soft text-foreground hover:bg-secondary transition-all duration-150 active:scale-95";
+const btnBase = "flex items-center justify-center w-9 h-9 rounded-xl border border-white/10 bg-white/10 backdrop-blur-3xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] text-foreground hover:bg-white/20 transition-all duration-150 active:scale-95";
 
-function MapControls({ mapRef, userLocation, selectedVehicle, hasRoute, routeCoordinates, stops }) {
+function MapControls({ mapRef, userLocation, selectedVehicle, allVehicles = [], routeCoordinates = null, stops }) {
   const handleZoomIn = () => mapRef.current?.zoomIn(1, { animate: true });
   const handleZoomOut = () => mapRef.current?.zoomOut(1, { animate: true });
 
@@ -170,7 +180,12 @@ function MapControls({ mapRef, userLocation, selectedVehicle, hasRoute, routeCoo
       points.push(routeCoordinates[0], routeCoordinates[routeCoordinates.length - 1]);
     }
     if (stops?.length > 0) {
-      stops.forEach(s => points.push([s.lat, s.lon]));
+      stops.forEach(s => {
+        const lng = s.lng !== undefined ? s.lng : s.lon;
+        if (s.lat !== undefined && lng !== undefined) {
+          points.push([s.lat, lng]);
+        }
+      });
     }
     if (points.length >= 2) {
       mapRef.current.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 15, animate: true });
@@ -180,7 +195,7 @@ function MapControls({ mapRef, userLocation, selectedVehicle, hasRoute, routeCoo
   };
 
   return (
-    <div style={{ zIndex: 1000 }} className="absolute right-3 top-3 flex flex-col gap-1.5">
+    <div className="absolute right-3 bottom-[48vh] sm:bottom-auto sm:top-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
       <button onClick={handleZoomIn} className={btnBase} title="Zoom in">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
       </button>
@@ -215,8 +230,9 @@ function MapControls({ mapRef, userLocation, selectedVehicle, hasRoute, routeCoo
  *   routeStops        — [{ name, lat, lon }, ...]
  *   routeInfo         — { routeNumber, routeName, via }
  *   followBus         — boolean, smooth-follow the live bus
+ *   allVehicles       — array of all live buses
  */
-export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates, routeStops, routeInfo, followBus = false }) {
+export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation, routeCoordinates, routeStops, routeInfo, followBus = false }) {
   const hasRoute = routeCoordinates && routeCoordinates.length > 1;
   const stops = routeStops || [];
   const mapRef = useRef(null);
@@ -227,6 +243,9 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
   const [walkPath, setWalkPath] = useState(null);
   const [walkLoading, setWalkLoading] = useState(false);
 
+  // Driving route state (Bus ETA)
+  const [driverDrivePath, setDriverDrivePath] = useState(null);
+
   // ─── Find nearest stop to USER ────────────────────────────────────────────
   const nearestStopToUser = useMemo(() => {
     if (!userLocation?.latitude || stops.length === 0) return null;
@@ -234,7 +253,9 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
     let best = null;
     let bestIdx = -1;
     stops.forEach((stop, i) => {
-      const d = haversineDist(userLocation.latitude, userLocation.longitude, stop.lat, stop.lon);
+      const lng = stop.lng !== undefined ? stop.lng : stop.lon;
+      if (stop.lat === undefined || lng === undefined) return;
+      const d = haversineDist(userLocation.latitude, userLocation.longitude, stop.lat, lng);
       if (d < minDist) { minDist = d; best = stop; bestIdx = i; }
     });
     return best ? { ...best, index: bestIdx, distanceM: Math.round(minDist) } : null;
@@ -252,21 +273,52 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
       if (d < driverNearestDist) { driverNearestDist = d; driverNearestIdx = i; }
     });
 
-    // Distance from driver to user's nearest stop (along route approximation)
-    const driverToUserStopDist = haversineDist(
-      selectedVehicle.latitude, selectedVehicle.longitude,
-      nearestStopToUser.lat, nearestStopToUser.lon,
-    );
+    // Distance from driver to user's nearest stop
+    let distToUserStopM;
+    let etaMin;
 
-    const etaMin = estimateBusEtaMin(driverToUserStopDist);
+    if (driverDrivePath) {
+       distToUserStopM = driverDrivePath.distanceM;
+       // Bus usually takes longer than a normal car routing due to stops and size
+       etaMin = Math.max(1, Math.round((driverDrivePath.durationS * 1.5) / 60));
+    } else {
+       distToUserStopM = Math.round(haversineDist(
+         selectedVehicle.latitude, selectedVehicle.longitude,
+         nearestStopToUser.lat, nearestStopToUser.lon,
+       ));
+       etaMin = estimateBusEtaMin(distToUserStopM);
+    }
 
     return {
       driverNearestStopIdx: driverNearestIdx,
       driverNearestStop: stops[driverNearestIdx],
-      distToUserStopM: Math.round(driverToUserStopDist),
+      distToUserStopM,
       etaMin,
     };
-  }, [selectedVehicle, stops, nearestStopToUser]);
+  }, [selectedVehicle, stops, nearestStopToUser, driverDrivePath]);
+
+  // ─── Fetch driving route for Bus ETA ───────
+  useEffect(() => {
+    if (!selectedVehicle || !nearestStopToUser) {
+      setDriverDrivePath(null);
+      return;
+    }
+    
+    let cancelled = false;
+    
+    const fetchIt = async () => {
+      const res = await fetchDrivingRoute(
+         selectedVehicle.latitude, selectedVehicle.longitude,
+         nearestStopToUser.lat, nearestStopToUser.lon
+      );
+      if (!cancelled && res) {
+         setDriverDrivePath(res);
+      }
+    };
+    
+    const timer = setTimeout(fetchIt, 500); // 500ms debounce
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [selectedVehicle?.latitude, selectedVehicle?.longitude, nearestStopToUser]);
 
   // ─── Fetch walking route when nearest stop or user location changes ───────
   useEffect(() => {
@@ -366,7 +418,7 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
           return (
             <Marker
               key={`stop-${idx}`}
-              position={[stop.lat, stop.lon]}
+              position={[stop.lat, (stop.lng || stop.lon)]}
               icon={stopIcon(isNearestUser)}
               zIndexOffset={isNearestUser ? 500 : 100}
             >
@@ -398,8 +450,8 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
                   )}
                 </div>
               </Popup>
-              <Tooltip direction="right" offset={[8, 0]} permanent={isNearestUser} opacity={1}>
-                <span style={{ fontSize: 11, fontWeight: isNearestUser ? 700 : 400 }}>
+              <Tooltip direction="right" offset={[12, 0]} permanent opacity={0.85}>
+                <span style={{ fontSize: 11, fontWeight: isNearestUser ? 700 : 500, color: isNearestUser ? '#1d4ed8' : '#374151' }}>
                   {isNearestUser ? `Near · ${stop.name}` : stop.name}
                 </span>
               </Tooltip>
@@ -432,12 +484,45 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
           />
         )}
 
-        {/* Live bus marker */}
-        {selectedVehicle && (
+        {/* Live bus markers for ALL live buses */}
+        {allVehicles && allVehicles.length > 0 ? (
+          allVehicles.map((vehicle) => {
+            const isSelected = selectedVehicle && selectedVehicle.id === vehicle.id;
+            return (
+              <Marker
+                key={vehicle.id}
+                position={[vehicle.latitude, vehicle.longitude]}
+                icon={busIcon(vehicle.busNumber)}
+                zIndexOffset={isSelected ? 1100 : 1000}
+              >
+                <Popup minWidth={200}>
+                  <div style={{ fontFamily: 'Inter, sans-serif' }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
+                      {vehicle.label} · {vehicle.busNumber}
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: 12 }}>
+                      {vehicle.latitude.toFixed(5)}, {vehicle.longitude.toFixed(5)}
+                    </div>
+                    {isSelected && driverStopInfo && (
+                      <div style={{ color: '#d97706', fontSize: 12, fontWeight: 600, marginTop: 4 }}>
+                        ~{driverStopInfo.etaMin} min to your nearest stop
+                      </div>
+                    )}
+                    {vehicle.lastSeen && (
+                      <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 3 }}>
+                        Updated {new Date(vehicle.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })
+        ) : selectedVehicle ? (
           <Marker
             position={[selectedVehicle.latitude, selectedVehicle.longitude]}
             icon={busIcon(selectedVehicle.busNumber)}
-            zIndexOffset={1000}
+            zIndexOffset={1100}
           >
             <Popup minWidth={200}>
               <div style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -460,9 +545,9 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
               </div>
             </Popup>
           </Marker>
-        )}
+        ) : null}
 
-        {/* User location */}
+      {/* User location */}
         {userLocation?.latitude && userLocation?.longitude && (
           <Marker position={[userLocation.latitude, userLocation.longitude]} icon={userIcon} zIndexOffset={900}>
             <Popup minWidth={200}>
@@ -485,6 +570,14 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
             </Popup>
           </Marker>
         )}
+
+        {/* Walking Path */}
+        {walkPath && walkPath.coordinates && (
+          <Polyline
+            positions={walkPath.coordinates}
+            pathOptions={{ color: '#16a34a', weight: 4, opacity: 0.8, dashArray: '5, 10', lineCap: 'round' }}
+          />
+        )}
       </MapContainer>
 
       {/* ─── Custom Map Controls ─── */}
@@ -501,7 +594,7 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
       {nearestStopToUser && userLocation && (
         <div
           style={{ zIndex: 1000 }}
-          className="absolute bottom-2 left-2 max-w-[220px] rounded-2xl border border-border bg-card/95 px-3 py-2 shadow-lifted backdrop-blur-md sm:bottom-4 sm:left-4 sm:max-w-[280px] sm:px-4 sm:py-3"
+          className="absolute top-4 left-1/2 -translate-x-1/2 sm:top-auto sm:bottom-4 max-w-[220px] w-full rounded-2xl border border-white/10 bg-white/10 px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.15)] backdrop-blur-3xl sm:max-w-[280px] sm:px-4 sm:py-3"
         >
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
             Nearest stop
@@ -525,7 +618,7 @@ export function PublicLiveMap({ selectedVehicle, userLocation, routeCoordinates,
       {driverStopInfo && selectedVehicle && (
         <div
           style={{ zIndex: 1000 }}
-          className="absolute bottom-2 right-2 max-w-[200px] rounded-2xl border border-amber-200 bg-amber-50/95 px-3 py-2 shadow-lifted backdrop-blur-md sm:bottom-4 sm:right-4 sm:max-w-[260px] sm:px-4 sm:py-3"
+          className="absolute top-20 right-3 sm:top-auto sm:bottom-4 sm:right-4 max-w-[200px] rounded-2xl border border-white/10 bg-amber-50/20 px-3 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.15)] backdrop-blur-3xl sm:max-w-[260px] sm:px-4 sm:py-3"
         >
           <div className="text-[10px] uppercase tracking-[0.18em] text-amber-700/70 font-semibold">
             Bus ETA

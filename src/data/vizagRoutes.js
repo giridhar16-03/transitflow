@@ -393,4 +393,71 @@ export async function fetchWalkingRoute(fromLat, fromLon, toLat, toLon) {
   }
 }
 
+/**
+ * Fetch a driving route between two coordinates using OSRM for bus ETA.
+ * Returns { distanceM: number, durationS: number }
+ */
+export async function fetchDrivingRoute(fromLat, fromLon, toLat, toLon) {
+  const key = `drive_${fromLat.toFixed(4)},${fromLon.toFixed(4)}_${toLat.toFixed(4)},${toLon.toFixed(4)}`;
+  if (walkCache.has(key)) return walkCache.get(key);
+
+  try {
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${fromLon},${fromLat};${toLon},${toLat}` +
+      `?overview=false`;
+
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json.code !== 'Ok' || !json.routes?.length) return null;
+
+    const route = json.routes[0];
+    const result = {
+      distanceM: Math.round(route.distance),
+      durationS: Math.round(route.duration),
+    };
+    walkCache.set(key, result);
+    saveWalkCache(walkCache);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch a full driving polyline between an array of stops using OSRM.
+ * Returns an array of coordinates [[lat, lon], ...]
+ */
+export async function fetchFullDrivingRoute(stops) {
+  if (!stops || stops.length < 2) return [];
+
+  // OSRM expects coordinates in lon,lat order joined by semicolons
+  const waypoints = stops.map(s => {
+    const lng = s.lng !== undefined ? s.lng : s.lon;
+    return `${lng},${s.lat}`;
+  }).join(';');
+
+  const key = `full_drive_${waypoints}`;
+  if (walkCache.has(key)) return walkCache.get(key);
+
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    
+    const json = await res.json();
+    if (json.code !== 'Ok' || !json.routes?.length) return [];
+
+    const route = json.routes[0];
+    const coords = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    
+    walkCache.set(key, coords);
+    saveWalkCache(walkCache);
+    return coords;
+  } catch {
+    return [];
+  }
+}
+
 export default VIZAG_ROUTES;

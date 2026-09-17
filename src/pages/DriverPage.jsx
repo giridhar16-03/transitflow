@@ -10,8 +10,6 @@ import { supabase } from "../lib/supabase";
 import { useDriverLocation } from "../hooks/useDriverLocation";
 import { findRouteByBusCode } from "../data/vizagRoutes";
 
-const initialLocation = { latitude: 12.9718, longitude: 77.5946 };
-
 export function DriverPage() {
   const navigate = useNavigate();
   const { userId: routeUserId = "" } = useParams();
@@ -19,7 +17,7 @@ export function DriverPage() {
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
   const [tripHistory, setTripHistory] = useState([]);
-  const [lastLocation, setLastLocation] = useState(initialLocation);
+  const [lastLocation, setLastLocation] = useState(null);
   const [positionLabel, setPositionLabel] = useState("GPS idle");
   const watchIdRef = useRef(null);
   const fallbackTimerRef = useRef(null);
@@ -30,14 +28,22 @@ export function DriverPage() {
   const [driverRecord, setDriverRecord] = useState(null);
   const trackingScope = currentUser?.id || routeUserId || "";
 
+  const [institutionRoutes, setInstitutionRoutes] = useState([]);
+  const [selectedRouteId, setSelectedRouteId] = useState("");
+
   const driverDisplayName = driverRecord?.display_name || getPreferredDisplayName(currentUser);
   const driverBusCode = driverRecord?.bus_code || "25P";
   const driverBusNumber = driverRecord?.bus_number || driverBusCode;
+  const isPrivate = Boolean(driverRecord?.institution_id);
 
   const tripRouteName = useMemo(() => {
+    if (isPrivate) {
+      const route = institutionRoutes.find(r => r.id === selectedRouteId);
+      return route ? route.route_name : "Select Route";
+    }
     const route = findRouteByBusCode(driverBusCode);
     return route ? `${route.routeNumber} : ${route.routeName}` : "Unknown Route";
-  }, [driverBusCode]);
+  }, [driverBusCode, isPrivate, institutionRoutes, selectedRouteId]);
 
   useDriverLocation({
     enabled: authReady && Boolean(currentUser) && tripStatus === "Active",
@@ -101,7 +107,7 @@ export function DriverPage() {
 
     (async () => {
       const [{ data: driverData, error: driverError }, { data: accountData, error: accountError }] = await Promise.all([
-        supabase.from("drivers").select("id, user_id, driver_key_id, display_name, email, bus_code, bus_number, latitude, longitude, last_seen, created_at").eq("user_id", currentUser.id).maybeSingle(),
+        supabase.from("drivers").select("id, user_id, driver_key_id, display_name, email, bus_code, bus_number, latitude, longitude, last_seen, created_at, institution_id").eq("user_id", currentUser.id).maybeSingle(),
         supabase.from("auth_accounts").select("user_id, email, role, provider, display_name, bus_code").eq("user_id", currentUser.id).maybeSingle(),
       ]);
 
@@ -127,6 +133,7 @@ export function DriverPage() {
         latitude: driverData.latitude ?? null,
         longitude: driverData.longitude ?? null,
         last_seen: driverData.last_seen || null,
+        institution_id: driverData.institution_id || null,
       });
 
       channel = supabase
@@ -155,6 +162,18 @@ export function DriverPage() {
           },
         )
         .subscribe();
+
+      if (driverData?.institution_id) {
+        const { data: routeData } = await supabase
+          .from("routes")
+          .select("id, route_name")
+          .eq("institution_id", driverData.institution_id)
+          .order("route_name");
+        if (mounted && routeData) {
+          setInstitutionRoutes(routeData);
+          if (routeData.length > 0) setSelectedRouteId(routeData[0].id);
+        }
+      }
     })();
 
     return () => {
@@ -239,7 +258,7 @@ export function DriverPage() {
     if (!currentUser) return;
 
     const resolvedRole = getUserRole(currentUser, "public-driver");
-    if (resolvedRole !== "public-driver") {
+    if (resolvedRole !== "public-driver" && resolvedRole !== "private-driver") {
       navigate(getDashboardPath(resolvedRole, currentUser.id), { replace: true });
     }
   }, [currentUser, navigate]);
@@ -257,14 +276,6 @@ export function DriverPage() {
       return undefined;
     }
 
-    const fallbackStep = () => {
-      setLastLocation((current) => ({
-        latitude: Number((current.latitude + (Math.random() - 0.5) * 0.0015).toFixed(6)),
-        longitude: Number((current.longitude + (Math.random() - 0.5) * 0.0015).toFixed(6)),
-      }));
-      setPositionLabel("Fallback GPS pulse");
-    };
-
     if (navigator.geolocation) {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
@@ -272,20 +283,20 @@ export function DriverPage() {
             latitude: Number(position.coords.latitude.toFixed(6)),
             longitude: Number(position.coords.longitude.toFixed(6)),
           });
-          setPositionLabel("Browser geolocation");
+          setPositionLabel("Accurate GPS Live");
         },
-        () => {
-          fallbackStep();
-          fallbackTimerRef.current = window.setInterval(fallbackStep, 5000);
+        (error) => {
+          console.warn("GPS watch error:", error);
+          setPositionLabel("Waiting for GPS signal...");
         },
         {
           enableHighAccuracy: true,
           maximumAge: 0,
           timeout: 10000,
-        },
+        }
       );
     } else {
-      fallbackTimerRef.current = window.setInterval(fallbackStep, 5000);
+      setPositionLabel("GPS not supported");
     }
 
     return () => {
@@ -320,11 +331,13 @@ export function DriverPage() {
   const syncDriverLocation = async (lat, lng) => {
     if (!currentUser || !supabase) return;
     try {
+      const fallbackPrefix = isPrivate ? "PDRV-" : "DRV-";
       const fallbackKey =
         driverRecord?.driver_key_id ||
-        `DRV-${String(currentUser.id).replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+        `${fallbackPrefix}${String(currentUser.id).replace(/-/g, "").slice(0, 12).toUpperCase()}`;
       const payload = {
         user_id: currentUser.id,
+        created_by: currentUser.id,
         driver_key_id: fallbackKey,
         display_name: driverDisplayName,
         email: currentUser.email,
@@ -334,6 +347,7 @@ export function DriverPage() {
         longitude: lng,
         trip_status: 'active',
         last_seen: new Date().toISOString(),
+        ...(isPrivate ? { route_id: selectedRouteId, institution_id: driverRecord?.institution_id } : {}),
       };
       await supabase.from("drivers").upsert(payload, { onConflict: "user_id" });
     } catch (e) {
@@ -346,11 +360,16 @@ export function DriverPage() {
       toast.error("You must be logged in to start a trip.");
       return;
     }
+    if (isPrivate && !selectedRouteId) {
+      toast.error("Please select a route for this trip.");
+      return;
+    }
 
     // Generate a fallback driver key if the DB row doesn't have one yet
+    const fallbackPrefix = isPrivate ? "PDRV-" : "DRV-";
     const effectiveDriverKeyId =
       driverRecord?.driver_key_id ||
-      `DRV-${String(currentUser.id).replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+      `${fallbackPrefix}${String(currentUser.id).replace(/-/g, "").slice(0, 12).toUpperCase()}`;
 
     setTripStatus("Active");
     setStartTime(new Date());
@@ -366,8 +385,10 @@ export function DriverPage() {
       driver_name: driverDisplayName,
       status: "active",
       start_time: new Date().toISOString(),
-      last_latitude: lastLocation.latitude,
-      last_longitude: lastLocation.longitude,
+      last_latitude: lastLocation?.latitude || null,
+      last_longitude: lastLocation?.longitude || null,
+      institution_id: driverRecord?.institution_id || null,
+      route_id: isPrivate ? selectedRouteId : null,
     }).select("id").single();
 
     if (error) {
@@ -376,17 +397,21 @@ export function DriverPage() {
       tripRecordIdRef.current = data?.id || null;
     }
 
-    // Upsert initial driver location immediately
-    await syncDriverLocation(lastLocation.latitude, lastLocation.longitude);
+    // Upsert initial driver location immediately if available
+    if (lastLocation) {
+      await syncDriverLocation(lastLocation.latitude, lastLocation.longitude);
+    }
 
-    // Every 5 seconds push the real GPS position (lastLocation is kept fresh by watchPosition)
+    // Every 4 seconds push the real GPS position (lastLocation is kept fresh by watchPosition)
     tripIntervalRef.current = window.setInterval(() => {
       setLastLocation((loc) => {
-        syncTripRecord({ last_latitude: loc.latitude, last_longitude: loc.longitude, status: "active" });
-        syncDriverLocation(loc.latitude, loc.longitude);
+        if (loc) {
+          syncTripRecord({ last_latitude: loc.latitude, last_longitude: loc.longitude, status: "active" });
+          syncDriverLocation(loc.latitude, loc.longitude);
+        }
         return loc;
       });
-    }, 5000);
+    }, 4000);
   };
 
   const endTrip = async () => {
@@ -406,8 +431,8 @@ export function DriverPage() {
     await syncTripRecord({
       status: "completed",
       end_time: endedAt.toISOString(),
-      last_latitude: lastLocation.latitude,
-      last_longitude: lastLocation.longitude,
+      last_latitude: lastLocation?.latitude || null,
+      last_longitude: lastLocation?.longitude || null,
     });
 
     // Mark driver as idle so they disappear from the public active list
@@ -440,105 +465,121 @@ export function DriverPage() {
         Loading TransitFlow...
       </div>
     ) : (
-    <div className="min-h-screen bg-background bg-grain">
-      <header className="border-b border-border/80 bg-background/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
-          <Button variant="ghost" to="/" className="px-0 hover:bg-transparent">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft">
-              <BusFront className="h-4 w-4" />
-            </div>
-            <span className="hidden font-display text-lg sm:inline">TransitFlow Driver</span>
-            <span className="font-display text-base sm:hidden">Driver</span>
-          </Button>
-          {currentUser ? <ProfileMenu user={currentUser} onSignOut={handleSignOut} /> : null}
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-10">
-
-        {/* ── Welcome + Controls ── */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="font-display text-xl text-foreground sm:text-2xl">Hi, {driverDisplayName}</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{tripRouteName}</p>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={startTrip} disabled={tripStatus === "Active"}>
-              <Play className="h-4 w-4" /> Start trip
+      <div className="min-h-screen bg-background bg-grain">
+        <header className="border-b border-border/80 bg-background/90 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
+            <Button variant="ghost" to="/" className="px-0 hover:bg-transparent">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft">
+                <BusFront className="h-4 w-4" />
+              </div>
+              <span className="hidden font-display text-lg sm:inline">TransitFlow Driver</span>
+              <span className="font-display text-base sm:hidden">Driver</span>
             </Button>
-            <Button variant="outline" onClick={endTrip} disabled={tripStatus !== "Active"}>
-              <Square className="h-4 w-4" /> End trip
-            </Button>
+            {currentUser ? <ProfileMenu user={currentUser} onSignOut={handleSignOut} /> : null}
           </div>
-        </div>
+        </header>
 
-        {/* ── Status grid ── */}
-        <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-          <Card className="p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Status</div>
-            <div className="mt-1.5 flex items-center gap-2 text-sm font-medium">
-              <span className={`h-2 w-2 rounded-full ${tripStatus === "Active" ? "bg-green-500 animate-pulse" : "bg-muted-foreground/40"}`} />
-              {tripStatus}
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Bus</div>
-            <div className="mt-1.5 text-sm font-medium">{driverBusNumber} · {driverBusCode}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">GPS</div>
-            <div className="mt-1.5 text-sm font-medium">{positionLabel}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Started</div>
-            <div className="mt-1.5 text-sm font-medium">{startTime ? startTime.toLocaleTimeString() : "—"}</div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Ended</div>
-            <div className="mt-1.5 text-sm font-medium">{endTime ? endTime.toLocaleTimeString() : "—"}</div>
-          </Card>
-        </div>
+        <main className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-10">
 
-        {/* ── Live info ── */}
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <Card className="p-5">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Location</div>
-            <div className="mt-2 font-display text-lg sm:text-xl">
-              {lastLocation.latitude.toFixed(4)}, {lastLocation.longitude.toFixed(4)}
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              <span className={`h-1.5 w-1.5 rounded-full ${tripStatus === "Active" ? "bg-green-500 animate-pulse" : "bg-muted-foreground/40"}`} />
-              {tripStatus === "Active" ? "Tracking live" : "GPS idle"}
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Trip history</div>
-              <Badge>{tripHistory.length} saved</Badge>
-            </div>
-            <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
-              {tripHistory.length > 0 ? (
-                tripHistory.map((trip) => (
-                  <div key={trip.id} className="flex items-center justify-between gap-3 rounded-xl bg-secondary/60 px-3 py-2 text-sm">
-                    <div>
-                      <span className="font-medium">{trip.busCode}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{trip.startedAt} → {trip.endedAt}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[10px]">{trip.status}</Badge>
-                  </div>
-                ))
+          {/* ── Welcome + Controls ── */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="font-display text-xl text-foreground sm:text-2xl">Hi, {driverDisplayName}</h1>
+              {!isPrivate ? (
+                <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">{tripRouteName}</p>
               ) : (
-                <div className="rounded-xl border border-dashed border-border px-4 py-4 text-center text-sm text-muted-foreground">
-                  No trips yet
+                <div className="mt-2">
+                  <select
+                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm outline-none w-full max-w-[300px]"
+                    value={selectedRouteId}
+                    onChange={(e) => setSelectedRouteId(e.target.value)}
+                    disabled={tripStatus === "Active"}
+                  >
+                    <option value="" disabled>Select a route</option>
+                    {institutionRoutes.map(r => (
+                      <option key={r.id} value={r.id}>{r.route_name}</option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>
-          </Card>
-        </div>
+            <div className="flex gap-2">
+              <Button onClick={startTrip} disabled={tripStatus === "Active" || (isPrivate && !selectedRouteId)}>
+                <Play className="h-4 w-4" /> Start trip
+              </Button>
+              <Button variant="outline" onClick={endTrip} disabled={tripStatus !== "Active"}>
+                <Square className="h-4 w-4" /> End trip
+              </Button>
+            </div>
+          </div>
 
-      </main>
-    </div>
+          {/* ── Status grid ── */}
+          <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+            <Card className="p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Status</div>
+              <div className="mt-1.5 flex items-center gap-2 text-sm font-medium">
+                <span className={`h-2 w-2 rounded-full ${tripStatus === "Active" ? "bg-green-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+                {tripStatus}
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Bus</div>
+              <div className="mt-1.5 text-sm font-medium">{driverBusNumber} · {driverBusCode}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">GPS</div>
+              <div className="mt-1.5 text-sm font-medium">{positionLabel}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Started</div>
+              <div className="mt-1.5 text-sm font-medium">{startTime ? startTime.toLocaleTimeString() : "—"}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Ended</div>
+              <div className="mt-1.5 text-sm font-medium">{endTime ? endTime.toLocaleTimeString() : "—"}</div>
+            </Card>
+          </div>
+
+          {/* ── Live info ── */}
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <Card className="p-5">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Location</div>
+              <div className="font-mono text-sm opacity-90 truncate">
+                {lastLocation ? `${lastLocation.latitude.toFixed(4)}, ${lastLocation.longitude.toFixed(4)}` : "Waiting for GPS..."}
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={`h-1.5 w-1.5 rounded-full ${tripStatus === "Active" ? "bg-green-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+                {tripStatus === "Active" ? "Tracking live" : "GPS idle"}
+              </div>
+            </Card>
+
+            <Card className="p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Trip history</div>
+                <Badge>{tripHistory.length} saved</Badge>
+              </div>
+              <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
+                {tripHistory.length > 0 ? (
+                  tripHistory.map((trip) => (
+                    <div key={trip.id} className="flex items-center justify-between gap-3 rounded-xl bg-secondary/60 px-3 py-2 text-sm">
+                      <div>
+                        <span className="font-medium">{trip.busCode}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">{trip.startedAt} → {trip.endedAt}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">{trip.status}</Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border px-4 py-4 text-center text-sm text-muted-foreground">
+                    No trips yet
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
+        </main>
+      </div>
     )
   );
 }

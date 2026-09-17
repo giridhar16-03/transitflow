@@ -1,0 +1,356 @@
+BUS ROUTES for the Academic year 2023-24
+A (KURMANNAPALEM) Starts at 6:45am
+B(Scindia) Starts at 6:45am
+01.Kurmannapalem
+01.Scindia
+02.Vadlapudi
+02.Sriharipuram
+03.Srinagar
+03.Coramandal Gate
+04.Gajuwaka Police Station
+04.Gajuwaka Depot
+05.R.K.Hospital
+05.Zinc Gate
+06.Panthulu Gari Meda
+06.BC.Road
+07.BHPV
+07.Old Gajuwaka
+08.Sheelanagar
+08.Panthulu Gari Meda
+09.Airport
+09.Natayyapalem
+10.Gopalapatnam Police Station
+10.Airport
+11.Simhachalam Depot
+11.Gopalapatnam Bunk
+12.Srinivasa Nagar
+12.L.G.Polymers
+13.Goshala
+13.Vepagunta
+14.Simhachalam Complex
+14.Sontyam
+15.Adivivaram
+15.water Tank
+16.Gudilova
+16.Dukkavanipalem
+17.Anandapuram
+C (SRIKAKULAM) Starts at 6:45am
+D (SRIKAKULAM) Starts at 6:45am
+01.Arasavilli
+01.Day & Night
+02.Mill Junction
+02.Madhava Motors
+03.OBS
+03.Rama Lakshmana Junction
+04.Day & Night
+04.Mill Junction
+05.PN.Colony
+05.OBS
+06.Kintara Mill
+06.Day & Night
+07.Chilakapalem
+07.PN Colony
+08.Subadhrapuram
+08.Nava Bharat Junction
+09.Ranastalam
+09.Chilakapalem
+10.Pydibhimavaram
+10.Subhadrapuram
+11.Kandivalasa Gedda
+11.Ranasthalam
+12.Mylan Company
+12.Kosta
+13.Poosapati Rega
+13.Chinapisini
+14.Natavalasa
+14.Pydibhimavaram
+15.Kandivalasa Gedda
+16.Poosapati Rega
+17.Natavalasa
+E(BOBBILI) Starts at 6:45am
+F (SALURU) Starts at 6:45am
+01.Bobbili
+01.Saluru Bosi Bommba Center
+02.Mettavalasa
+02.Rambhadrapuram By Pass
+03.Rambadrapuram
+03.Maradam
+04.Busayavalasa
+04.Komatapalli
+05.Manapuram
+05.Manapuram
+06.Gajapathinagaram
+06.Gudivada
+07.Bondapalli Police Station
+07.Gajapathinagaram
+08.Ambativalasa
+08.Bondapalli Police Station
+09.Gotlam
+09.Bondapalli
+10.JNTU College
+10.Ambativalasa
+11.K.L.Puram
+11.Gotlam
+12.RTO Office
+13.K.L.Puram
+14.Bridge Down
+G (NAD - KARASA) Starts at 7:00am
+H (SIRIPURAM -VSP)Starts at 7:00am
+01.NAD
+01.Gadi Raju Palace
+02.Karasa
+02.Baba Bazar
+03.Marripalem
+03.Ramalakshmi Appartment
+04.104 Area
+04.Ushodaya
+05.IT Junction
+05.AS Raja Circle / MVP
+06.Urvasi
+06.Appu Ghar / MVP
+07.Gnanapuram
+07.Visakha Valley School Down
+08.Allipuram
+08.PM Plaem
+09.Railway New Colony
+09.PM Palem Last Bus Stop,3rd,2nd,1st
+10.Dondaparthy
+10.Carshed
+11.Sangam Office
+11.Madhurawada
+12.Akkayyapalem Down
+12.Kommadhi
+13.4 th Police Station
+14.PM Plaem Stadium
+15.Carshed
+I (NAD - NSTL GATE) Starts at 7:00am
+J (NAD - NSTL) Starts at 7:00am
+01.NAD
+01.NSTL Gate
+02.R & B
+02.R & B
+03.Punjab Hotel
+03.Punjab Hotel
+04.Birla
+04.Birla
+05.5th Town
+05.Urvasi
+06.Kancharapalem
+06.Kancharapalem
+07.Port Stadium
+07.Tatichetlapalem
+08.Akkayyapalem Hi-Way
+08.Port Hospital
+09.4 th Town Police Station
+09.Akkayyapalem Hi-Way
+10.Shilparamam
+10.4 th Town PS
+11.Marikavalasa
+11.Maddilapalem
+12.Tagarapuvalasa
+12.Automotive
+13.Rajapulova
+13.Venkojipalem
+14.Hanumanthawaka
+15.Dairy Form
+16.Yendada Bus Stop
+17.Carshed
+18.Chandrampalem
+19.Madhurawada
+20.Kommadi
+K(TOWN KOTHA ROAD) Starts at 7:00am
+L (NAD - NSTL) Starts at 7:00am
+01.Town Kotha Road
+01.NAD
+02.Purna Market
+02.5 th Town PS
+03.Chitralaya
+03.Urvasi
+04.Jagadamba
+04.Tatichetlapalem
+05.Green Park
+05.Port Hospital
+06.Seven Hills
+06.Gurudwara
+07.Ramnagar
+07.Satyam Jn
+08.Governor Bangalow
+08.Kinnara Theator
+09.All India Radio
+09.Maddilapalem
+10.Siripuram
+10.Isukathota
+11.AU Out gate
+11.Yendada Bunk
+12.China waltair
+12.Yendada Bus Stop
+13.Lawsons Bay Colony Bunk
+13.Tagarapuvalasa 3 temples
+14.Mvp TTD
+14.Gosthani River
+15.Girijan Bhavan
+16.Venkojipalem
+17.Hanumanthawaka(Vims)
+18.Kamat Hotel
+19.Peddi Palem
+20.Rajula Tallavalasa
+M(PENDURTHY Starts at 7:00am)
+N (NAD - Baji Jn..) Starts at 7:00am
+01.Chinamushidiwada
+01.Krishna Nagar
+02.Government Hospital
+02.Naidu Thota
+03.Pendhurty Jn
+03.Vepagunta Anjaneya Swamy Temple
+04.Saripalli
+04.Krishnarayapuram
+05.Desapatripalem
+05.Purushottapuram
+06.Mangalapalem
+06.Sujathanagar
+07.Kothavalasa Railway Station
+07.Chinnamushidivada
+08.Kothavalasa
+08.Pendhurty Police Station
+09.Kothavalasa High School
+09.Hospital
+10.Kantikapallli
+10.Pendurthy
+11.Katikapalli
+11.Pendurthy Kata
+12.Alamanda
+12.Akkireddy Palem
+13.Gandigundam
+O (NAD - Baji Jn..) Starts at 7:00am
+P(DABAGARDENS)Starts at 7:00am
+01.Baji Jn
+01.Town Kotha Road
+02.Gopalapatnam Rly St
+02.Purnamarket
+03.Gopalapatnam Bunk
+03.Jagadamba
+04.Srinivasanagar
+04.Jail Road
+05.Adivivaram
+05.R.K.Family Store
+06.Arilova
+06.Seethampeta
+07.Saibaba Temple
+07.Satyam Jn
+08.Pedagadili
+08.Eenadu
+09.Vims Hospital
+09.Seethammadara
+10.Dairy Form
+10.MMTC
+11.Visakha Valley
+11.HB.Colony
+12.Bheemili Cross Road
+Q(DENKADA)Starts at 7:45am
+R (Nellimarla) Starts at 7:45am
+01.Denkada
+01.Moida Jn
+02.Gunupur
+02.Nellimarlla Complex
+03.Chinna Tadivada
+03.Ramatheertalu
+04.Pedda Tadivada
+04.Mims Hospital
+05.Pedda Tadivada Bank
+05.Pool Bhag
+06.Narayanapuram
+06.Water Tank
+07.Check Post
+07.Dasannapeta
+08.Jammu
+08.Sun Scool
+09.Jammunarayanapuram
+09.Ice Factory Jn
+10.Maramma Thalli Gudi
+10.MR College
+11.Dasannapeta Ring Road
+11.NCS
+12.Sun School
+12.Railway Station
+13.Venkateswara Swamy Temple Arch
+14.Poovada School
+15.Ice Factory
+S (L KOTA) Starts at 7:00am
+T(AYYANNAPETA) Starts at 7:45 am
+01.L.Kota
+01.Ayyannapeta
+02.Sompuram
+02.Kamakshinagar
+03.Paturu
+03.Kanapaka
+04.Boddam
+04.Collector Office
+05.Venkataramanapeta
+05.Vuda Colony
+06.Dharmavaram
+06.R & B
+07.Seetharampuram
+07.Bridge Down
+08.Korlam
+08.Pradeepnagar
+09.Bhonagi
+09.Court
+10.Vasadi
+10.D-Mart
+11.Tamarapalli Jn
+11.Y-Junction
+12.Lakkidam
+13.Narava
+14.Ramavaram
+15.Kamakshinagar
+16.Kanapaka
+17.Vizianagaram RTC Complex
+18.Bhasyam School
+U(CHEEPURUPALLI) Starts at 7:10am
+V(AYYANNAPETA) Starts at 7:45am
+01.Cheepurupalli Complex
+01.Ayyannapeta
+02.Anjaneyapuram
+02.Kamakshinagar
+03.Garividi Eye hospital
+03.Kanapaka
+04.Garividi Theator
+04.Collector Office
+05.Bridge Up & Down
+05.Vuda Colony
+06.Atchuthapuram
+06.R & B
+07.Gujjingavalasa
+07.Bridge Down
+08.Gudem Jn
+08.Pradeepnagar
+09.Gurla
+09.Court
+10.Nellimarlla Railway Station
+10.D-Mart
+11.Moida Jn
+11.Y-Junction
+12.Nellimarlla Complex
+13.Rama Theerthalu Jn
+14.Diet/Mims Hospital
+15.Poolbhaga
+W(POOLBHAG) Starts at 7:45am
+X(S KOTA) Starts at 7:15am
+01.Poolbhag
+01.S.Kota Complex
+02.Water Tank
+02.Devi Gudi Jn
+03.Dasannapeta
+03.Krishnapuram Jn
+04.Ring Road
+04.Pavada Jn
+05.MR College
+05.Jagaram
+06.NCS
+06.Jami
+07.CMR
+07.Bheemasingi
+08.Railway Station
+08.Sugar Factory
+09.Korukonda Saink School
+10.Chinnapuram

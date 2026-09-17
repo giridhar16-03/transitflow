@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui.jsx';
 import { getPreferredDisplayName } from '../lib/authAccess';
 
 export function ProfileMenu({ user, onSignOut }) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const btnRef = useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 180 });
@@ -64,7 +66,7 @@ export function ProfileMenu({ user, onSignOut }) {
                 <div className="mt-1 truncate text-xs text-muted-foreground">Signed in</div>
               </div>
               <div className="mt-2 border-t border-border/70 pt-2">
-                <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => { /* profile */ }}>
+                <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => { setOpen(false); navigate('/profile'); }}>
                   Profile
                 </Button>
                 <Button variant="outline" size="sm" className="mt-2 w-full justify-start" onClick={onSignOut}>

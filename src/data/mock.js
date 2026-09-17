@@ -46,7 +46,12 @@ export const benefits = [
   "Simple admin workflows for vehicles, routes, drivers, and users.",
 ];
 
-export const publicBuses = [];
+export const publicBuses = [
+  { id: "pub-1", busNumber: "25P", busCode: "25P", label: "25P · OPO", route: "Ratnagiri HB Colony → Old Post Office", status: "En route", eta: "4 min", speed: 28, driver: "Ravi K", latitude: 17.7384, longitude: 83.2510, etaMinutes: 4 },
+  { id: "pub-2", busNumber: "10K", busCode: "10K", label: "10K · Kailasagiri", route: "RTC Complex → Kailasagiri", status: "En route", eta: "7 min", speed: 22, driver: "Suresh P", latitude: 17.7550, longitude: 83.3270, etaMinutes: 7 },
+  { id: "pub-3", busNumber: "60C", busCode: "60C", label: "60C · Arilova", route: "Arilova Colony → Old Post Office", status: "Departing", eta: "12 min", speed: 15, driver: "Lakshmi D", latitude: 17.7611, longitude: 83.2899, etaMinutes: 12 },
+  { id: "pub-4", busNumber: "900K", busCode: "900K", label: "900K · Bheemili", route: "Bheemili → Railway Station", status: "En route", eta: "18 min", speed: 32, driver: "Arun V", latitude: 17.7205, longitude: 83.3150, etaMinutes: 18 },
+];
 
 export const routeCards = [
   {

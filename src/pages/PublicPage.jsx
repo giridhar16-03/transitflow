@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   BusFront, MapPinned, Search, Route, Radio,
@@ -52,6 +52,7 @@ export function PublicPage() {
   const [liveRouteInfo, setLiveRouteInfo] = useState(null);
   const [liveRouteLoading, setLiveRouteLoading] = useState(false);
   const [followBus, setFollowBus] = useState(true);
+  const searchInputRef = useRef(null);
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -334,566 +335,385 @@ export function PublicPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background bg-grain">
+    <div className="relative h-[100dvh] w-screen overflow-hidden bg-background">
+      
+      {/* ── Full Bleed Map Layer (z-0) ── */}
+      <div className="absolute inset-0 z-0">
+        {activeTab === "routes" ? (
+          <PublicLiveMap
+            selectedVehicle={null}
+            userLocation={userLocation}
+            routeCoordinates={routeCoordinates}
+            routeStops={routeStops}
+            routeInfo={selectedRoute}
+          />
+        ) : (
+          <PublicLiveMap
+            selectedVehicle={selectedVehicle}
+            userLocation={userLocation}
+            routeCoordinates={liveRouteCoords}
+            routeStops={liveRouteStops}
+            routeInfo={liveRouteInfo}
+            followBus={followBus}
+          />
+        )}
 
-      {/* ── Header ── */}
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
-                <BusFront className="h-4 w-4" />
-              </div>
-              {/* live pulse */}
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-background animate-pulse" />
-            </div>
-            <div>
-              <span className="font-display text-base leading-none">TransitFlow</span>
-              <div className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">Visakhapatnam</div>
-            </div>
-          </div>
-          {currentUser && (
-            <div className="flex items-center gap-3">
-              {userLocation && (
-                <div className="hidden items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
-                  <Navigation className="h-3 w-3 text-green-500" />
-                  GPS active
-                </div>
-              )}
-              <ProfileMenu user={currentUser} onSignOut={handleSignOut} />
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* ── Hero strip ── */}
-      <div className="bg-ambient border-b border-border/40">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="font-display text-xl text-foreground sm:text-2xl">
-                {currentUser ? `Hi, ${getPreferredDisplayName(currentUser)}` : "TransitFlow"}
-              </h1>
-              <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">Track buses across Visakhapatnam</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <main className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-8 md:py-10">
-
-        {/* ── Tab bar ── */}
-        <div className="mb-5 flex gap-1 rounded-2xl border border-border bg-secondary/50 p-1 w-full sm:w-fit sm:mb-8 sm:gap-2 sm:p-1.5">
-          {[
-            { id: "routes", icon: Route,  label: "Browse Routes" },
-            { id: "live",   icon: Radio,  label: "Live Tracking" },
-          ].map(({ id, icon: Icon, label }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={[
-                "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-200 sm:flex-initial sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm",
-                activeTab === id
-                  ? "bg-card text-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground",
-              ].join(" ")}
-            >
-              <Icon className={`h-4 w-4 transition-colors ${activeTab === id ? "text-primary" : ""}`} />
-              {label}
-              {id === "live" && filteredVehicles.length > 0 && (
-                <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white">
-                  {filteredVehicles.length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* ══════════════════ ROUTES TAB ══════════════════ */}
-        {activeTab === "routes" && (
-          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[420px_1fr]">
-
-            {/* Left column */}
-            <div className="space-y-4">
-
-              {/* Search */}
-              <Card className="p-4 shadow-soft">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={routeSearch}
-                    onChange={(e) => setRouteSearch(e.target.value)}
-                    placeholder="Search route number, name, via…"
-                    className="pl-9"
-                  />
-                </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{filteredRoutes.length} routes found</span>
-                  {routeSearch && (
-                    <button
-                      onClick={() => setRouteSearch("")}
-                      className="text-primary hover:underline"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </Card>
-
-              {/* Route list */}
-              <div className="max-h-[calc(100vh-320px)] min-h-[24rem] space-y-2 overflow-y-auto pr-1">
-                {filteredRoutes.map((route, idx) => {
-                  const isSelected = selectedRoute?.osmRelationId === route.osmRelationId;
-                  return (
-                    <button
-                      key={`${route.osmRelationId}-${idx}`}
-                      onClick={() => handleViewRoute(route)}
-                      className={[
-                        "w-full rounded-2xl border text-left transition-all duration-200 group",
-                        isSelected
-                          ? "border-primary/40 bg-card shadow-lifted"
-                          : "border-border bg-card/60 hover:border-border hover:bg-card hover:shadow-soft",
-                      ].join(" ")}
-                    >
-                      <div className="flex items-center justify-between gap-3 p-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={[
-                              "shrink-0 rounded-lg px-2 py-0.5 text-xs font-bold tracking-wide",
-                              isSelected
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-secondary text-secondary-foreground",
-                            ].join(" ")}>
-                              {route.routeNumber}
-                            </span>
-                            <span className="truncate text-sm font-medium">{route.routeName}</span>
-                          </div>
-                          {route.via && (
-                            <div className="mt-1.5 truncate text-xs text-muted-foreground">
-                              via {route.via}
-                            </div>
-                          )}
-                        </div>
-                        <ChevronRight className={[
-                          "h-4 w-4 shrink-0 transition-all duration-200",
-                          isSelected
-                            ? "text-primary rotate-90"
-                            : "text-muted-foreground group-hover:translate-x-0.5",
-                        ].join(" ")} />
-                      </div>
-
-                      {/* Selected expanded footer */}
-                      {isSelected && !loadingRoute && (
-                        <div className="border-t border-border/50 px-4 py-2.5 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            {routeStops.length > 0 ? (
-                              <>
-                                <MapPin className="h-3 w-3 text-blue-500" />
-                                <span>{routeStops.length} stops mapped</span>
-                              </>
-                            ) : routeError ? (
-                              <>
-                                <AlertCircle className="h-3 w-3 text-destructive" />
-                                <span className="text-destructive">Could not load stops</span>
-                              </>
-                            ) : (
-                              <span className="text-muted-foreground/60">Loading stops…</span>
-                            )}
-                          </div>
-                          {routeCoordinates && (
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                              Route loaded
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right: map */}
-            <div className="flex flex-col gap-4">
-              {/* Map header */}
-              <div className="flex items-center gap-2">
-                <MapPinned className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">
-                  {selectedRoute
-                    ? `Route ${selectedRoute.routeNumber} · ${selectedRoute.routeName}`
-                    : "Select a route to view"}
-                </span>
-              </div>
-
-              {/* Map card */}
-              <Card className="relative overflow-hidden p-0 shadow-lifted flex-1">
-
-                {/* Loading overlay */}
-                {loadingRoute && (
-                  <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/70 backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-3 rounded-2xl bg-card border border-border px-7 py-5 shadow-lifted text-center max-w-xs animate-rise-in">
-                      <div className="relative">
-                        <Loader2 className="h-7 w-7 animate-spin text-primary" />
-                        <div className="absolute inset-0 h-7 w-7 rounded-full border-2 border-primary/20" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold">{loadingMessage || "Loading route…"}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Retries automatically on rate limits
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Error state */}
-                {routeError && !loadingRoute && (
-                  <div className="absolute top-4 left-1/2 z-[999] -translate-x-1/2 w-[calc(100%-2rem)]">
-                    <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-soft backdrop-blur-sm">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <div>{routeError}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty state */}
-                {!selectedRoute && (
-                  <div className="absolute inset-0 z-10 grid place-items-center bg-secondary/30">
-                    <div className="flex flex-col items-center gap-3 text-center px-8">
-                      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-secondary border border-border shadow-soft">
-                        <Route className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div className="text-sm font-medium text-foreground">No route selected</div>
-                      <div className="text-xs text-muted-foreground max-w-[200px]">
-                        Click any route on the left to view its path and bus stops
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="h-[50vh] min-h-[18rem] sm:h-[calc(100vh-340px)] sm:min-h-[26rem]">
-                  <PublicLiveMap
-                    selectedVehicle={null}
-                    userLocation={userLocation}
-                    routeCoordinates={routeCoordinates}
-                    routeStops={routeStops}
-                    routeInfo={selectedRoute}
-                  />
-                </div>
-              </Card>
-
-              {/* Route info strip — icon-based, no emoji */}
-              {selectedRoute && routeCoordinates && !loadingRoute && (
-                <div className="flex flex-wrap items-center gap-3 animate-fade-up">
-                  <div className="flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    Origin
-                  </div>
-                  <div className="h-px flex-1 border-t border-dashed border-border" />
-                  {routeStops.length > 0 && (
-                    <div className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary">
-                      <MapPin className="h-3 w-3" />
-                      {routeStops.length} stops
-                    </div>
-                  )}
-                  <div className="h-px flex-1 border-t border-dashed border-border" />
-                  <div className="flex items-center gap-1.5 rounded-full border border-destructive/20 bg-destructive/5 px-3 py-1 text-xs font-semibold text-destructive">
-                    <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
-                    Destination
-                  </div>
-                </div>
-              )}
+        {/* Loading / Error states overlaid centrally on the map */}
+        {(loadingRoute || liveRouteLoading) && (
+          <div className="absolute top-1/2 left-1/2 z-[1000] -translate-x-1/2 -translate-y-1/2">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 px-7 py-5 shadow-[0_8px_32px_rgba(0,0,0,0.15)] text-center max-w-xs animate-rise-in backdrop-blur-3xl bg-white/10">
+              <Loader2 className="h-7 w-7 animate-spin text-primary" />
+              <div className="text-sm font-semibold">{loadingMessage || "Loading route..."}</div>
             </div>
           </div>
         )}
+        
+        {routeError && !loadingRoute && activeTab === "routes" && (
+          <div className="absolute top-4 left-1/2 z-[1000] -translate-x-1/2 w-full max-w-sm pointer-events-none">
+            <div className="mx-4 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/20 px-4 py-3 text-sm text-red-600 shadow-[0_8px_32px_rgba(0,0,0,0.15)] backdrop-blur-3xl pointer-events-auto font-medium">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>{routeError}</div>
+            </div>
+          </div>
+        )}
+      </div>
 
-        {/* ══════════════════ LIVE TRACKING TAB ══════════════════ */}
-        {activeTab === "live" && (
-          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[420px_1fr]">
+      {/* ── Top Right Controls (z-20) ── */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-3 pointer-events-none">
 
-            {/* Left column */}
-            <div className="space-y-4">
+        {userLocation && (
+          <div className="hidden items-center gap-1.5 rounded-full border border-white/10 bg-white/10 backdrop-blur-3xl px-3 py-1.5 text-xs text-foreground sm:flex shadow-[0_4px_16px_rgba(0,0,0,0.15)] pointer-events-auto font-medium">
+            <Navigation className="h-3 w-3 text-green-500" />
+            GPS active
+          </div>
+        )}
 
-              {/* Search card */}
-              <Card className="p-4 shadow-soft space-y-3">
+      </div>
+
+      {/* ── Mobile Split / Desktop Sidebar (z-10) ── */}
+      <div className="absolute inset-x-4 top-4 bottom-4 sm:left-4 sm:right-auto sm:w-[380px] z-10 flex flex-col justify-between sm:justify-start gap-4 pointer-events-none">
+        
+        {/* Brand & Tabs Panel */}
+        <div className={`shrink-0 pointer-events-auto flex-col gap-2.5 sm:gap-4 rounded-2xl sm:rounded-3xl border border-white/10 bg-white/10 backdrop-blur-3xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] p-2.5 sm:p-4 ${
+          ((activeTab === "routes" && selectedRoute) || (activeTab === "live" && (selectedBusId || liveRouteInfo))) 
+            ? "hidden sm:flex" 
+            : "flex"
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="relative">
+                <div className="grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+                  <BusFront className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-green-400 ring-2 ring-background animate-pulse" />
+              </div>
+              <div>
+                <h1 className="font-display text-base sm:text-lg leading-tight text-foreground">TransitFlow</h1>
+                <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Visakhapatnam</div>
+              </div>
+            </div>
+            
+            {currentUser && (
+              <div className="pointer-events-auto shadow-soft rounded-full">
+                <ProfileMenu user={currentUser} onSignOut={handleSignOut} />
+              </div>
+            )}
+          </div>
+
+          {/* Tab bar */}
+          <div className="flex gap-1 rounded-2xl border border-white/5 bg-white/5 p-1 w-full backdrop-blur-3xl">
+            {[
+              { id: "routes", icon: Route,  label: "Browse Routes" },
+              { id: "live",   icon: Radio,  label: "Live Tracking" },
+            ].map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={[
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 sm:py-2 text-xs font-medium transition-all duration-200",
+                  activeTab === id
+                    ? "bg-white/20 backdrop-blur-md text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.1)] border border-white/10 font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/10",
+                ].join(" ")}
+              >
+                <Icon className={`h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors ${activeTab === id ? "text-primary" : ""}`} />
+                {label}
+                {id === "live" && filteredVehicles.length > 0 && (
+                  <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white">
+                    {filteredVehicles.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom Content Wrapper */}
+        <div className="flex flex-col justify-end sm:justify-start pointer-events-none flex-1 min-h-0">
+          
+          {/* Dynamic Content Panel (Search & List) */}
+          <div className={`flex-1 min-h-0 max-h-[35vh] sm:max-h-none flex-col pointer-events-auto overflow-hidden rounded-3xl border border-white/10 bg-white/10 backdrop-blur-3xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] ${
+            ((activeTab === "routes" && selectedRoute) || (activeTab === "live" && (selectedBusId || liveRouteInfo))) 
+              ? "hidden sm:flex" 
+              : "flex"
+          }`}>
+            
+            {/* SEARCH HEADER */}
+            <div className="p-4 border-b border-white/10 shrink-0 bg-white/5">
+              {activeTab === "routes" ? (
+                <div>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      ref={searchInputRef}
+                      value={routeSearch}
+                    onChange={(e) => setRouteSearch(e.target.value)}
+                    placeholder="Search route number, name, via..."
+                    className="pl-9 h-9 text-sm bg-white/10 border-white/10 focus:bg-white/20 text-foreground placeholder:text-foreground/50 transition-all backdrop-blur-md"
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground font-medium px-1">
+                  <span>{filteredRoutes.length} routes</span>
+                  {routeSearch && (
+                    <button onClick={() => setRouteSearch("")} className="text-primary hover:underline">Clear</button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Signal className="h-4 w-4 text-green-500" />
-                    <span className="text-sm font-medium">Find a bus</span>
+                    <span className="text-sm font-semibold">Find a bus</span>
                   </div>
                   {(liveFrom || liveTo || busCode) && (
                     <button
                       onClick={() => { setLiveFrom(""); setLiveTo(""); setBusCode(""); setSelectedBusId(""); }}
-                      className="text-xs text-primary hover:underline"
+                      className="text-xs font-medium text-primary hover:underline"
                     >
                       Clear filters
                     </button>
                   )}
                 </div>
-
-                {/* From / To dropdown selects */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <Label htmlFor="liveFrom" className="text-[10px] uppercase tracking-wider text-muted-foreground">From</Label>
-                    <select
-                      id="liveFrom"
-                      className="mt-1 w-full rounded-xl border border-border bg-secondary/60 px-2.5 py-2 text-xs transition-colors hover:border-primary focus:border-primary focus:outline-none"
-                      value={liveFrom}
-                      onChange={(e) => { setLiveFrom(e.target.value); setSelectedBusId(""); }}
-                    >
-                      <option value="">— Any Origin —</option>
-                      {uniquePlaces.map((place) => (
-                        <option key={`from-${place}`} value={place}>{place}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="liveTo" className="text-[10px] uppercase tracking-wider text-muted-foreground">To</Label>
-                    <select
-                      id="liveTo"
-                      className="mt-1 w-full rounded-xl border border-border bg-secondary/60 px-2.5 py-2 text-xs transition-colors hover:border-primary focus:border-primary focus:outline-none"
-                      value={liveTo}
-                      onChange={(e) => { setLiveTo(e.target.value); setSelectedBusId(""); }}
-                    >
-                      <option value="">— Any Destination —</option>
-                      {uniquePlaces.map((place) => (
-                        <option key={`to-${place}`} value={place}>{place}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    className="w-full rounded-lg border border-white/10 bg-white/10 px-2 py-1.5 text-xs transition-all hover:bg-white/20 focus:bg-white/20 focus:outline-none text-foreground backdrop-blur-md"
+                    value={liveFrom}
+                    onChange={(e) => { setLiveFrom(e.target.value); setSelectedBusId(""); }}
+                  >
+                    <option value="">Origin...</option>
+                    {uniquePlaces.map((place) => (
+                      <option key={`from-${place}`} value={place}>{place}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="w-full rounded-lg border border-white/10 bg-white/10 px-2 py-1.5 text-xs transition-all hover:bg-white/20 focus:bg-white/20 focus:outline-none text-foreground backdrop-blur-md"
+                    value={liveTo}
+                    onChange={(e) => { setLiveTo(e.target.value); setSelectedBusId(""); }}
+                  >
+                    <option value="">Destination...</option>
+                    {uniquePlaces.map((place) => (
+                      <option key={`to-${place}`} value={place}>{place}</option>
+                    ))}
+                  </select>
                 </div>
-
-                <div>
-                  <Label htmlFor="busSearch" className="text-[10px] uppercase tracking-wider text-muted-foreground">Search code or number</Label>
-                  <div className="relative mt-1">
-                    <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="busSearch"
-                      value={busCode}
-                      onChange={(e) => { setBusCode(e.target.value); setSelectedBusId(""); }}
-                      placeholder="e.g. 25P, 10K"
-                      className="pl-9 text-xs py-2 h-9"
-                    />
-                  </div>
-                </div>
-              </Card>
-
-              {/* Stats strip */}
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="p-4 text-center shadow-soft">
-                  <div className="font-display text-3xl text-gradient-warm">{filteredVehicles.length}</div>
-                  <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">Active buses</div>
-                </Card>
-                <Card className="p-4 text-center shadow-soft">
-                  <div className="font-display text-3xl text-gradient-warm">
-                    {displayItems.length}
-                  </div>
-                  <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-                    Matching routes
-                  </div>
-                </Card>
-              </div>
-
-              {/* Bus cards / Routes cards list */}
-              <div className="max-h-[40vh] min-h-[10rem] space-y-3 overflow-y-auto pr-1 sm:max-h-[calc(100vh-400px)] sm:min-h-[18rem]">
-                {displayItems.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border bg-secondary/40 px-5 py-8 text-center">
-                    <BusFront className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-                    <div className="text-sm font-medium text-foreground">No matches found</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Try adjusting origin/destination filters or search query.
-                    </div>
-                  </div>
-                ) : (
-                  displayItems.map((item) => {
-                    const isSelected = selectedBusId === item.id;
-                    const isLive = item.type === "live";
-
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setSelectedBusId(isSelected ? "" : item.id)}
-                        className={[
-                          "w-full rounded-2xl border text-left transition-all duration-200 group",
-                          isSelected
-                            ? "border-primary/40 bg-card shadow-lifted"
-                            : "border-border bg-card/60 hover:bg-card hover:shadow-soft",
-                        ].join(" ")}
-                      >
-                        <div className="p-4">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-3">
-                              <div className={[
-                                "grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-bold transition-colors",
-                                isSelected
-                                  ? (isLive ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground")
-                                  : (isLive ? "bg-amber-100 text-amber-700" : "bg-secondary text-secondary-foreground"),
-                              ].join(" ")}>
-                                {item.routeNumber}
-                              </div>
-                              <div>
-                                <div className="text-sm font-semibold">{item.routeName}</div>
-                                {isLive ? (
-                                  <div className="text-xs text-muted-foreground">{item.vehicle.label} · Active</div>
-                                ) : (
-                                  <div className="text-xs text-muted-foreground/70">via {item.via || "Direct"}</div>
-                                )}
-                              </div>
-                            </div>
-                            {isLive ? (
-                              <div className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-green-700">
-                                <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                                Live
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 rounded-full bg-secondary border border-border px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                                Route Only
-                              </div>
-                            )}
-                          </div>
-
-                          {isLive && (
-                            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                              <div className="flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-2">
-                                <MapPin className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-muted-foreground truncate">
-                                  {item.vehicle.latitude.toFixed(4)}, {item.vehicle.longitude.toFixed(4)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-2">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-muted-foreground">
-                                  {item.vehicle.lastSeen
-                                    ? new Date(item.vehicle.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                                    : "—"}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-              {/* Right: live map */}
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Radio className="h-4 w-4 text-primary" />
-                    {selectedVehicle && (
-                      <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-                    )}
-                  </div>
-                  <span className="text-sm font-medium">
-                    {selectedVehicle
-                      ? `Tracking ${selectedVehicle.busNumber} · ${selectedVehicle.label}`
-                      : (liveRouteInfo
-                        ? `Viewing Route ${liveRouteInfo.routeNumber} · ${liveRouteInfo.routeName}`
-                        : "Real-time tracking")}
-                  </span>
-                </div>
-                {userLocation && (
-                  <div className="flex items-center gap-1.5 text-xs text-green-600">
-                    <Navigation className="h-3 w-3" /> Your GPS is active
-                  </div>
-                )}
-              </div>
-
-              <Card className="relative overflow-hidden p-0 shadow-lifted flex-1">
-
-                {/* Empty state */}
-                {!selectedVehicle && !liveRouteInfo && (
-                  <div className="absolute inset-0 z-10 grid place-items-center bg-secondary/30">
-                    <div className="flex flex-col items-center gap-3 text-center px-8">
-                      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-secondary border border-border shadow-soft">
-                        <Radio className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div className="text-sm font-medium">Select a route or live bus</div>
-                      <div className="text-xs text-muted-foreground max-w-[220px]">
-                        Select any route/live bus card from the list to view route path and stops
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {liveRouteLoading && (
-                  <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-background/70 backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-3 rounded-2xl bg-card border border-border px-7 py-5 shadow-lifted text-center max-w-xs animate-rise-in">
-                      <Loader2 className="h-7 w-7 animate-spin text-primary" />
-                      <div className="text-sm font-semibold">Loading route for {selectedVehicle?.busCode}…</div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="h-[50vh] min-h-[18rem] sm:h-[calc(100vh-340px)] sm:min-h-[26rem]">
-                  <PublicLiveMap
-                    selectedVehicle={selectedVehicle}
-                    userLocation={userLocation}
-                    routeCoordinates={liveRouteCoords}
-                    routeStops={liveRouteStops}
-                    routeInfo={liveRouteInfo}
-                    followBus={followBus}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={busCode}
+                    onChange={(e) => { setBusCode(e.target.value); setSelectedBusId(""); }}
+                    placeholder="Search code (e.g. 25P)"
+                    className="pl-8 text-xs py-1.5 h-8 bg-white/10 border-white/10 focus:bg-white/20 text-foreground placeholder:text-foreground/50 transition-all backdrop-blur-md"
                   />
                 </div>
-              </Card>
+              </div>
+            )}
+          </div>
 
-              {/* Selected bus info strip */}
-              {(selectedVehicle || liveRouteInfo) && (
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 animate-fade-up">
-                  <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
-                    <BusFront className="h-3.5 w-3.5" /> {selectedVehicle ? selectedVehicle.busNumber : liveRouteInfo.routeNumber}
+          {/* LIST */}
+          <div className="flex-1 overflow-y-auto overscroll-contain p-2 space-y-1.5 pr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/50">
+            {activeTab === "routes" && filteredRoutes.map((route, idx) => {
+              const isSelected = selectedRoute?.osmRelationId === route.osmRelationId;
+              return (
+                <button
+                  key={`${route.osmRelationId}-${idx}`}
+                  onClick={() => handleViewRoute(route)}
+                  className={[
+                    "w-full rounded-xl text-left transition-all duration-200 group px-3 py-2.5",
+                    isSelected
+                      ? "bg-primary/20 border-primary/30 shadow-sm backdrop-blur-md"
+                      : "bg-transparent hover:bg-white/10 border border-transparent",
+                  ].join(" ")}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={[
+                      "shrink-0 rounded-lg px-2 py-1 text-xs font-bold tracking-wide transition-colors",
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-white/10 text-foreground group-hover:bg-white/20 group-hover:backdrop-blur-md group-hover:shadow-sm border border-white/5",
+                    ].join(" ")}>
+                      {route.routeNumber}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className={`truncate text-sm font-semibold ${isSelected ? "text-primary" : "text-foreground"}`}>
+                        {route.routeName}
+                      </div>
+                      {route.via && (
+                        <div className="truncate text-[11px] text-muted-foreground">via {route.via}</div>
+                      )}
+                    </div>
                   </div>
-                  {selectedVehicle ? (
-                    <>
-                      {userToBusDistance != null && (
-                        <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
-                          <MapPin className="h-3 w-3" /> {userToBusDistance.toFixed(2)} km
+                </button>
+              );
+            })}
+
+            {activeTab === "live" && displayItems.length === 0 && (
+              <div className="px-4 py-8 text-center">
+                <BusFront className="mx-auto mb-2 h-6 w-6 text-muted-foreground/40" />
+                <div className="text-sm font-medium text-muted-foreground">No matches found</div>
+              </div>
+            )}
+
+            {activeTab === "live" && displayItems.map((item) => {
+              const isSelected = selectedBusId === item.id;
+              const isLive = item.type === "live";
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedBusId(isSelected ? "" : item.id)}
+                  className={[
+                    "w-full rounded-xl text-left transition-all duration-200 group p-3 border",
+                    isSelected
+                      ? "border-primary/40 bg-primary/5 shadow-sm"
+                      : "border-transparent bg-transparent hover:bg-secondary/60",
+                  ].join(" ")}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className={[
+                        "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-bold transition-colors shadow-sm",
+                        isSelected
+                          ? (isLive ? "bg-amber-500 text-white" : "bg-primary text-primary-foreground")
+                          : (isLive ? "bg-amber-100 text-amber-700" : "bg-card text-foreground border border-border/50"),
+                      ].join(" ")}>
+                        {item.routeNumber}
+                      </div>
+                      <div>
+                        <div className={`text-sm font-semibold leading-tight ${isSelected ? "text-foreground" : "text-foreground/90"}`}>
+                          {item.routeName}
                         </div>
-                      )}
-                      {selectedVehicle.lastSeen && (
-                        <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
-                          <Clock className="h-3 w-3" />
-                          {new Date(selectedVehicle.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      )}
-                      <button
-                        onClick={() => setFollowBus((p) => !p)}
-                        className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors shadow-sm ${
-                          followBus
-                            ? 'border-green-200 bg-green-50 text-green-700'
-                            : 'border-border bg-card text-muted-foreground hover:bg-secondary'
-                        }`}
-                      >
-                        <Navigation className="h-3 w-3" /> {followBus ? 'Following' : 'Follow'}
-                      </button>
-                    </>
-                  ) : (
-                    <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
-                      <Route className="h-3 w-3" /> Route view
+                        {isLive ? (
+                          <div className="text-[11px] font-medium text-amber-600/90 mt-0.5 flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            {item.vehicle.label}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                            via {item.via || "Direct"}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  {liveRouteStops.length > 0 && (
-                    <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
-                      <MapPin className="h-3 w-3" /> {liveRouteStops.length} stops
-                    </div>
-                  )}
-                  <button
-                    onClick={() => { setSelectedBusId(""); setFollowBus(true); }}
-                    className="shrink-0 ml-auto flex items-center gap-1.5 rounded-full bg-secondary/80 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                  >
-                    Clear selection
-                  </button>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          </div>
+
+          {/* Selected Item Info Panel (Bottom of left sidebar) */}
+          {((activeTab === "routes" && selectedRoute) || (activeTab === "live" && (selectedBusId || liveRouteInfo))) && (
+            <div className="shrink-0 pointer-events-auto p-4 animate-rise-in relative rounded-3xl border border-white/10 bg-white/10 backdrop-blur-3xl shadow-[0_8px_32px_rgba(0,0,0,0.15)] mt-3 sm:mt-0">
+              <button 
+              onClick={() => {
+                if (activeTab === "routes") setSelectedRoute(null);
+                else setSelectedBusId("");
+              }}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary p-1 rounded-full transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+            </button>
+            
+            {activeTab === "routes" && selectedRoute && (
+              <>
+                <div className="flex items-center gap-2 mb-2 pr-6">
+                  <div className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-md shadow-sm">
+                    {selectedRoute.routeNumber}
+                  </div>
+                  <div className="text-sm font-bold truncate">{selectedRoute.routeName}</div>
                 </div>
-              )}
-            </div>
+                
+                <div className="text-xs text-muted-foreground mb-3">
+                  {routeStops.length > 0 ? (
+                    <span className="flex items-center gap-1 text-foreground font-medium"><MapPin className="h-3 w-3 text-blue-500"/> {routeStops.length} stops mapped</span>
+                  ) : loadingRoute ? (
+                    <span className="animate-pulse">Loading map data...</span>
+                  ) : (
+                    "No stop data available."
+                  )}
+                </div>
+
+                {routeStops.length > 0 && (
+                  <div className="flex gap-2">
+                    <Button variant="default" className="w-full h-8 text-xs bg-primary/90 hover:bg-primary">
+                      View full schedule
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "live" && selectedVehicle && (
+              <>
+                <div className="flex items-center gap-2 mb-2 pr-6">
+                   <div className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-md shadow-sm">
+                    {selectedVehicle.busNumber}
+                  </div>
+                  <div className="text-sm font-bold truncate">{selectedVehicle.label}</div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                  <div className="flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-2 text-muted-foreground">
+                     <Clock className="h-3 w-3" />
+                     {selectedVehicle.lastSeen ? new Date(selectedVehicle.lastSeen).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "-"}
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-2 text-muted-foreground">
+                    <Navigation className="h-3 w-3" /> 
+                    <span className="truncate">{selectedVehicle.latitude.toFixed(4)}, {selectedVehicle.longitude.toFixed(4)}</span>
+                  </div>
+                </div>
+
+                <Button 
+                  variant="outline" 
+                  className={`w-full h-8 text-xs transition-colors ${followBus ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : ''}`}
+                  onClick={() => setFollowBus(!followBus)}
+                >
+                   {followBus ? 'Following Bus' : 'Follow on Map'}
+                </Button>
+              </>
+            )}
+
+            {activeTab === "live" && !selectedVehicle && liveRouteInfo && (
+              <>
+                <div className="flex items-center gap-2 mb-2 pr-6">
+                  <div className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-md shadow-sm">
+                    {liveRouteInfo.routeNumber}
+                  </div>
+                  <div className="text-sm font-bold truncate">{liveRouteInfo.routeName}</div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                   Viewing route path. No active buses currently matching this selection.
+                </div>
+              </>
+            )}
+
           </div>
         )}
-      </main>
+
+        </div>
+      </div>
     </div>
   );
 }
+

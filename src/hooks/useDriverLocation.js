@@ -44,8 +44,16 @@ export function useDriverLocation({ enabled = true, busCode, busNumber, driverKe
           if (driverKeyId) {
             payload.driver_key_id = driverKeyId;
           }
-          await supabase.from('drivers').upsert(payload, { onConflict: 'user_id' });
+          console.log("Attempting to upsert driver location:", payload);
+          const { data, error } = await supabase.from('drivers').upsert(payload, { onConflict: 'user_id' });
+          if (error) {
+            console.error("Upsert driver location failed:", error);
+            onError?.(error);
+          } else {
+            console.log("Upsert successful!", data);
+          }
         } catch (e) {
+          console.error("Exception during upsert:", e);
           onError?.(e);
         }
       };
@@ -67,7 +75,11 @@ export function useDriverLocation({ enabled = true, busCode, busNumber, driverKe
       const fail = (err) => onError?.(err);
 
       if ('geolocation' in navigator) {
-        watchIdRef.current = navigator.geolocation.watchPosition(success, fail, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        // Force an immediate initial update
+        navigator.geolocation.getCurrentPosition(success, fail, { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 });
+        
+        // Then watch for subsequent changes
+        watchIdRef.current = navigator.geolocation.watchPosition(success, fail, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 });
       } else {
         onError?.(new Error('Geolocation not supported'));
       }

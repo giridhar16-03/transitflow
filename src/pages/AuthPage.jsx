@@ -21,9 +21,24 @@ const roleCopy = {
     description: "Start and end trips, push live GPS updates, and manage bus status.",
     path: "/driver",
   },
+  "private-admin": {
+    title: "Institution Admin",
+    description: "Register your institution and manage your private fleet.",
+    path: "/institution",
+  },
+  "private-driver": {
+    title: "Private Driver",
+    description: "Log in with your institution code to start private trips.",
+    path: "/driver",
+  },
+  "private-user": {
+    title: "Private User",
+    description: "Enter your institution code to track your private fleet.",
+    path: "/private",
+  },
   private: {
-    title: "Private Registration",
-    description: "Under production. Please wait.",
+    title: "Institution Admin",
+    description: "Register your institution and manage your private fleet.",
     path: "/institution",
   },
 };
@@ -38,6 +53,12 @@ const publicRoleOptions = [
   { key: "public-driver", title: "Driver", icon: UserRound },
 ];
 
+const privateRoleOptions = [
+  { key: "private-admin", title: "Admin", icon: ShieldCheck },
+  { key: "private-driver", title: "Driver", icon: UserRound },
+  { key: "private-user", title: "User", icon: UserRound },
+];
+
 const profileFieldSets = {
   "public-user": [
     { name: "name", label: "Full Name", placeholder: "Aarav Sharma" },
@@ -50,12 +71,32 @@ const profileFieldSets = {
     { name: "busCode", label: "Bus Code", placeholder: "25P" },
     { name: "busNumber", label: "Bus Number", placeholder: "25P-001" },
   ],
+  "private-admin": [
+    { name: "institutionName", label: "Institution Name", placeholder: "Sunrise Academy" },
+    { name: "institutionLocation", label: "Institution Address / Location", placeholder: "e.g. MVP Colony, Visakhapatnam" },
+    { name: "institutionType", label: "Institution Type", placeholder: "School, College, or Company" },
+    { name: "contactPerson", label: "Contact Person", placeholder: "Priya Singh" },
+    { name: "phoneNumber", label: "Phone Number", placeholder: "+91 9876543210" },
+  ],
+  "private-driver": [
+    { name: "driverAccessCode", label: "Driver Access Code", placeholder: "DRV-A1B2C3" },
+    { name: "name", label: "Full Name", placeholder: "Arjun Verma" },
+    { name: "age", label: "Age", type: "number", placeholder: "34" },
+  ],
+  "private-user": [
+    { name: "institutionCode", label: "Institution Code", placeholder: "INST-1234" },
+    { name: "accessCode", label: "Institution Access Code", placeholder: "Provided by admin" },
+    { name: "name", label: "Full Name", placeholder: "Your Name" },
+  ],
 };
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 function normalizeRole(roleParam) {
   if (roleParam === "driver" || roleParam === "public-driver") return "public-driver";
+  if (roleParam === "private-admin" || roleParam === "private") return "private-admin";
+  if (roleParam === "private-driver") return "private-driver";
+  if (roleParam === "private-user") return "private-user";
   return "public-user";
 }
 
@@ -74,7 +115,11 @@ function buildAuthPath(mode, role) {
 }
 
 function roleLabel(role) {
-  return normalizeAuthRole(role) === "public-driver" ? "Driver" : "User";
+  const norm = normalizeAuthRole(role);
+  if (norm === "public-driver") return "Driver";
+  if (norm === "private-admin") return "Institution Admin";
+  if (norm === "private-driver") return "Private Driver";
+  return "User";
 }
 
 function isMissingProfilesTableError(error) {
@@ -100,7 +145,7 @@ export function AuthPage() {
 
   const [authMode, setAuthMode] = useState(initialMode);
   const [audience, setAudience] = useState(initialAudience);
-  const [publicRole, setPublicRole] = useState(normalizeRole(roleParam));
+  const [activeRole, setActiveRole] = useState(normalizeRole(roleParam));
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({});
   const [profileForm, setProfileForm] = useState({});
@@ -113,14 +158,14 @@ export function AuthPage() {
   useEffect(() => {
     setAuthMode(searchParams.get("mode") === "register" ? "register" : "login");
     const nextRole = searchParams.get("role") || "public-user";
-    setPublicRole(normalizeRole(nextRole));
+    setActiveRole(normalizeRole(nextRole));
     setAudience(nextRole.startsWith("private") ? "private" : "public");
     setForm({});
     setProfileForm({});
     setProfileSetupState(null);
   }, [searchParams]);
 
-  const currentRoleKey = audience === "private" ? "private" : publicRole;
+  const currentRoleKey = activeRole;
   const activeRoleCopy = roleCopy[currentRoleKey] ?? roleCopy["public-user"];
   const activeProfileFields = useMemo(() => {
     if (!profileSetupState) return [];
@@ -236,15 +281,17 @@ export function AuthPage() {
       return;
     }
 
-    const numericAge = Number(profileForm.age);
-    if (!Number.isFinite(numericAge) || numericAge <= 0) {
-      toast.error("Please enter a valid age.");
-      return;
-    }
-
-    if (profileSetupState.role === "public-driver" && numericAge < 18) {
-      toast.error("Driver must be at least 18 years old.");
-      return;
+    let numericAge = null;
+    if (profileSetupState.role.includes("driver")) {
+      numericAge = Number(profileForm.age);
+      if (!Number.isFinite(numericAge) || numericAge <= 0) {
+        toast.error("Please enter a valid age.");
+        return;
+      }
+      if (numericAge < 18) {
+        toast.error("Driver must be at least 18 years old.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -252,9 +299,12 @@ export function AuthPage() {
       const role = profileSetupState.role;
       const email = profileSetupState.email;
       const provider = profileSetupState.provider || "password";
-      const displayName = String(profileForm.name || "").trim();
+      
+      const displayName = String(profileForm.name || profileForm.contactPerson || "").trim();
       const busCode = String(profileForm.busCode || "").trim();
       const busNumber = String(profileForm.busNumber || "").trim();
+      const institutionCode = String(profileForm.institutionCode || "").trim();
+      const accessCode = String(profileForm.accessCode || "").trim();
 
       // 1. Save auth_accounts
       await saveAccountRecord({
@@ -263,7 +313,7 @@ export function AuthPage() {
         role,
         provider,
         displayName,
-        busCode: role === "public-driver" ? busCode : "",
+        busCode: role.includes("driver") ? busCode : "",
         hasPassword: provider === "password",
       });
 
@@ -285,26 +335,53 @@ export function AuthPage() {
         }
       }
 
-      // 3. Save drivers table (for public-driver)
-      if (role === "public-driver") {
+      // 3. Save drivers table (for public-driver and private-driver)
+      if (role === "public-driver" || role === "private-driver") {
+        let institutionId = null;
+        let finalBusCode = busCode;
+        let finalBusNumber = busNumber;
+        
+        // For private drivers, fetch the route by driverAccessCode
+        if (role === "private-driver") {
+          const driverAccessCode = String(profileForm.driverAccessCode || "").trim();
+          const { data: routeData } = await supabase
+            .from("routes")
+            .select("id, institution_id, bus_number")
+            .eq("driver_access_code", driverAccessCode)
+            .maybeSingle();
+            
+          if (!routeData) {
+            toast.error("Invalid Driver Access Code. Please check the code provided by your admin.");
+            setLoading(false);
+            return;
+          }
+          institutionId = routeData.institution_id;
+          finalBusNumber = routeData.bus_number || "Bus";
+          finalBusCode = "PRIVATE";
+        }
+
         const { data: existingDriver } = await supabase
           .from("drivers")
           .select("driver_key_id")
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
-        const generatedDriverKey = `DRV-${String(currentUser.id || "").replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+        const prefix = role === "private-driver" ? "PDRV-" : "DRV-";
+        const generatedDriverKey = `${prefix}${String(currentUser.id || "").replace(/-/g, "").slice(0, 12).toUpperCase()}`;
         const driverKeyId = String(existingDriver?.driver_key_id || generatedDriverKey).trim();
 
         const driverPayload = {
           user_id: currentUser.id,
+          created_by: currentUser.id,
           driver_key_id: driverKeyId,
+          name: displayName,
           display_name: displayName,
           email,
           age: numericAge,
-          bus_code: busCode,
-          bus_number: busNumber,
+          bus_code: finalBusCode,
+          bus_number: finalBusNumber,
           driving_license_number: String(profileForm.drivingLicenseNumber || "").trim(),
+          institution_id: institutionId,
         };
 
         const { error: driverError } = await supabase.from("drivers").upsert(driverPayload, { onConflict: "user_id" });
@@ -313,19 +390,107 @@ export function AuthPage() {
           // Fallback with fewer columns
           const fallbackPayload = {
             user_id: currentUser.id,
+            created_by: currentUser.id,
             driver_key_id: driverKeyId,
-            display_name: displayName,
+            name: displayName,
             age: numericAge,
-            bus_number: busNumber,
+            bus_number: finalBusNumber,
             email,
-            bus_code: busCode,
+            bus_code: finalBusCode,
+            institution_id: institutionId,
           };
           const { error: fallbackError } = await supabase.from("drivers").upsert(fallbackPayload, { onConflict: "user_id" });
           if (fallbackError) {
             toast.error(fallbackError.message || "Driver profile could not be saved.");
+            setLoading(false);
             return;
           }
         }
+        
+        // Add private drivers to institution_users
+        if (role === "private-driver" && institutionId) {
+          await supabase.from("institution_users").upsert({
+            user_id: currentUser.id,
+            institution_id: institutionId,
+            role: "private_driver"
+          }, { onConflict: "user_id, institution_id" });
+        }
+      }
+
+      // 3.5 Save institutions (for private-admin)
+      if (role === "private-admin") {
+        let lat = null;
+        let lng = null;
+        if (profileForm.institutionLocation) {
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(profileForm.institutionLocation)}&limit=1`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+              lat = Number(data[0].lat);
+              lng = Number(data[0].lon);
+            }
+          } catch (e) {
+            console.warn("Failed to geocode institution location:", e);
+          }
+        }
+
+        // Generate institution_code and access_code
+        const generatedInstCode = String(profileForm.institutionName || "INST").toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4) + "-" + Math.floor(1000 + Math.random() * 9000);
+        const generatedAccessCode = "STUDENT" + Math.floor(100 + Math.random() * 900);
+
+        // Upsert institution
+        const { data: instData, error: instError } = await supabase.from("institutions").upsert({
+          owner_user_id: currentUser.id,
+          institution_name: String(profileForm.institutionName || "").trim(),
+          institution_type: String(profileForm.institutionType || "").trim(),
+          contact_person: displayName,
+          email: email,
+          phone_number: String(profileForm.phoneNumber || "").trim(),
+          institution_password_hash: "handled-by-auth",
+          name: String(profileForm.institutionName || "").trim(),
+          institution_code: generatedInstCode,
+          access_code: generatedAccessCode,
+          latitude: lat,
+          longitude: lng,
+        }, { onConflict: "owner_user_id" }).select("id").single();
+        
+        if (instError) {
+          toast.error(instError.message || "Institution could not be created.");
+          setLoading(false);
+          return;
+        }
+
+        // Add to institution_users
+        if (instData?.id) {
+          await supabase.from("institution_users").upsert({
+            user_id: currentUser.id,
+            institution_id: instData.id,
+            role: "private_institution_admin"
+          }, { onConflict: "user_id, institution_id" });
+        }
+      }
+
+      // 3.6 Save to institution_users for private-user
+      if (role === "private-user") {
+        // Verify institution code and access code
+        const { data: instData } = await supabase
+          .from("institutions")
+          .select("id")
+          .eq("institution_code", institutionCode)
+          .eq("access_code", accessCode)
+          .maybeSingle();
+
+        if (!instData) {
+          toast.error("Invalid Institution Code or Access Code. Please verify with your admin.");
+          setLoading(false);
+          return;
+        }
+
+        await supabase.from("institution_users").upsert({
+          user_id: currentUser.id,
+          institution_id: instData.id,
+          role: "private_user"
+        }, { onConflict: "user_id, institution_id" });
       }
 
       // 4. Update user metadata
@@ -334,8 +499,8 @@ export function AuthPage() {
           role,
           full_name: displayName,
           age: numericAge,
-          bus_code: role === "public-driver" ? busCode : null,
-          bus_number: role === "public-driver" ? busNumber : null,
+          bus_code: role.includes("driver") ? busCode : null,
+          bus_number: role.includes("driver") ? busNumber : null,
           driving_license_number: role === "public-driver" ? String(profileForm.drivingLicenseNumber || "").trim() : null,
         },
       });
@@ -432,7 +597,7 @@ export function AuthPage() {
         }
       } else {
         /* ─── REGISTER ─── */
-        const chosenRole = publicRole;
+        const chosenRole = activeRole;
         const displayName = form.fullName || form.email.split("@")[0];
 
         // Check if this email is already registered with a different role
@@ -494,7 +659,7 @@ export function AuthPage() {
     }
 
     // For registration: include role. For login: role doesn't matter (DB decides).
-    const selectedRole = authMode === "register" ? publicRole : "public-user";
+    const selectedRole = authMode === "register" ? activeRole : "public-user";
     const redirectTo = `${window.location.origin}${buildAuthPath(authMode, selectedRole)}&provider=google`;
     const { error } = await signInWithGoogle(redirectTo);
     if (error) {
@@ -536,7 +701,7 @@ export function AuthPage() {
 
       if (authMode === "register") {
         /* ─── GOOGLE REGISTER ─── */
-        const chosenRole = normalizeRole(searchParams.get("role") || publicRole);
+        const chosenRole = normalizeRole(searchParams.get("role") || activeRole);
         const displayName = account?.display_name || currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || currentUser.email || "User";
 
         // If already registered as a DIFFERENT role → block
@@ -638,7 +803,7 @@ export function AuthPage() {
       toast.success("Logged in successfully.");
       navigateToDashboard(resolvedRole, currentUser.id);
     })();
-  }, [authReady, currentUser, authMode, audience, navigate, publicRole, searchParams]);
+  }, [authReady, currentUser, authMode, audience, navigate, activeRole, searchParams]);
 
   /* ═══════════════════════════════════════════════════════════════════════════ */
   /*  Render                                                                    */
@@ -692,8 +857,8 @@ export function AuthPage() {
                         <button
                           key={item.key}
                           type="button"
-                          onClick={() => { setPublicRole(item.key); setForm({}); }}
-                          className={`rounded-2xl border p-3 text-left transition ${publicRole === item.key ? "border-primary bg-card shadow-soft" : "border-border bg-card/70 hover:bg-card"}`}
+                          onClick={() => { setActiveRole(item.key); setForm({}); }}
+                          className={`rounded-2xl border p-3 text-left transition ${activeRole === item.key ? "border-primary bg-card shadow-soft" : "border-border bg-card/70 hover:bg-card"}`}
                         >
                           <div className="flex items-center gap-2 text-sm font-medium">
                             <Icon className="h-4 w-4" />
@@ -704,10 +869,24 @@ export function AuthPage() {
                     })}
                   </div>
                 ) : (
-                  <Card className="mt-5 p-3.5">
-                    <div className="text-sm font-medium">Private side is under production.</div>
-                    <p className="mt-1 text-sm text-muted-foreground">Please wait while we complete private registration flow.</p>
-                  </Card>
+                  <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
+                    {privateRoleOptions.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => { setActiveRole(item.key); setForm({}); }}
+                          className={`rounded-2xl border p-3 text-left transition ${activeRole === item.key ? "border-primary bg-card shadow-soft" : "border-border bg-card/70 hover:bg-card"}`}
+                        >
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <Icon className="h-4 w-4" />
+                            {item.title}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </>
             ) : null}
@@ -795,22 +974,7 @@ export function AuthPage() {
                 </div>
               ) : null}
 
-              <div className="mt-6 space-y-3">
-                {authMode === "register" && audience === "private" ? (
-                  <div className="rounded-2xl border border-border bg-secondary/40 p-3 text-sm text-muted-foreground animate-fade-up">
-                    Private side is under production. Please wait.
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-border bg-secondary/40 p-3 text-sm text-muted-foreground animate-fade-up">
-                    {isLoginMode
-                      ? "Sign in with your email and password, or use Google. Your role (User or Driver) is detected automatically."
-                      : "Register with email or Google, then complete your profile details."}
-                  </div>
-                )}
-              </div>
-
               {/* ─── Email/Password form ─── */}
-              {!(authMode === "register" && audience === "private") && (
                 <form onSubmit={handleEmailAuth} className="mt-6 space-y-4 animate-fade-up">
                   {authMode === "register" && (
                     <div>
@@ -848,7 +1012,7 @@ export function AuthPage() {
                   </div>
                   <Button type="submit" className="w-full" disabled={loading || !!profileSetupState}>
                     {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    {isLoginMode ? "Sign in" : `Register as ${publicRole === "public-driver" ? "Driver" : "User"}`}
+                    {isLoginMode ? "Sign in" : `Register as ${activeRoleCopy.title}`}
                   </Button>
 
                   <div className="relative flex items-center justify-center my-4">
@@ -858,11 +1022,18 @@ export function AuthPage() {
                     <span className="relative bg-background px-3 text-xs text-muted-foreground uppercase">or</span>
                   </div>
                 </form>
-              )}
 
               {/* ─── Google button + toggle ─── */}
-              <div className="mt-5 w-full animate-fade-up" style={{ animationDelay: "140ms" }}>
-                <div className="mt-2 sm:mt-0 sm:ml-2 text-sm text-muted-foreground">
+              <div className="mt-0 w-full animate-fade-up" style={{ animationDelay: "140ms" }}>
+                <div className="flex mt-0">
+                  <Button variant="outline" size="md" onClick={handleGoogle} className="w-full" disabled={loading || !!profileSetupState || (authMode === "register" && audience === "private")}>
+                    <Icons.bus className="mr-2" />
+                    {isLoginMode
+                      ? "Sign in with Google"
+                      : `Register with Google as ${activeRole === "public-driver" || activeRole === "private-driver" ? "Driver" : "User"}`}
+                  </Button>
+                </div>
+                <div className="mt-4 text-sm text-muted-foreground">
                   {isLoginMode ? (
                     <>
                       New to TransitFlow?{" "}
@@ -886,15 +1057,6 @@ export function AuthPage() {
                       </button>
                     </>
                   )}
-                </div>
-
-                <div className="flex mt-4">
-                  <Button variant="outline" size="md" onClick={handleGoogle} className="w-full" disabled={loading || !!profileSetupState || (authMode === "register" && audience === "private")}>
-                    <Icons.bus className="mr-2" />
-                    {isLoginMode
-                      ? "Sign in with Google"
-                      : `Register with Google as ${publicRole === "public-driver" ? "Driver" : "User"}`}
-                  </Button>
                 </div>
               </div>
 
