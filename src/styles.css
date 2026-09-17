@@ -352,34 +352,85 @@
   animation: fade-up 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
+/* ── Exact Ogaki-Style Animations & Layout ── */
 
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-
-  .scroll-reveal {
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  .scroll-reveal .reveal-child {
-    opacity: 1 !important;
-    transform: none !important;
-    transition: none !important;
-  }
+@keyframes ticker {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
 }
 
-overflow: hidden;
-will-change: transform;
+.animate-ticker {
+  animation: ticker 40s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+/* Typography Helpers (Ogaki exact emulation) */
+.ogaki-serif {
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  letter-spacing: -1.4px;
+  line-height: 0.95;
+}
+
+.ogaki-grotesk {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ogaki-tag {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Split Text Reveal Mask */
+.split__mask {
+  overflow: hidden;
+  display: inline-block;
+  padding-bottom: 0.2em;
+  margin-bottom: -0.2em;
+  vertical-align: top;
+  position: relative;
+}
+
+.split__text {
+  display: inline-block;
+  will-change: transform, opacity;
+  transform: translateY(120%);
+  opacity: 0;
+  transition: transform 0.8s cubic-bezier(0.13, 0.875, 0.455, 0.97), opacity 0.8s ease;
+  transition-delay: calc(0.05s * var(--splitTextDelay, 0));
+}
+
+.is-visible .split__text,
+.is-visible.split__text {
+  transform: translateY(0%);
+  opacity: 1;
+}
+
+/* Hover Link Arrow */
+.hover-arrow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.3s ease;
+}
+
+.hover-arrow-link svg {
+  transition: transform 0.3s cubic-bezier(0.13, 0.875, 0.455, 0.97);
+}
+
+.hover-arrow-link:hover svg {
+  transform: translateX(4px);
+}
+
+/* Image Scale Reveal */
+.media-reveal-mask {
+  overflow: hidden;
+  will-change: transform;
 }
 
 .media-reveal-content {
@@ -418,3 +469,4 @@ will-change: transform;
     transition: none !important;
   }
 }
+
