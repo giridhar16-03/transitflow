@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   BusFront, MapPinned, Search, Route, Radio,
   Loader2, ChevronRight, Navigation, Clock,
@@ -29,8 +29,9 @@ export function PublicPage() {
   const { userId: routeUserId = "" } = useParams();
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState("routes");
-  const [busCode, setBusCode] = useState("");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("bus") ? "live" : "routes");
+  const [busCode, setBusCode] = useState(searchParams.get("bus") || "");
   const [selectedBusId, setSelectedBusId] = useState("");
   const [liveFrom, setLiveFrom] = useState("");
   const [liveTo, setLiveTo] = useState("");
@@ -66,7 +67,7 @@ export function PublicPage() {
         setAuthReady(true);
 
         if (!nextUser) {
-          navigate("/auth?mode=login&role=public-user", { replace: true });
+          // Allow anonymous access! Just stay on the page.
           return;
         }
 
@@ -413,10 +414,17 @@ export function PublicPage() {
               </div>
             </div>
             
-            {currentUser && (
+            {currentUser ? (
               <div className="pointer-events-auto shadow-soft rounded-full">
                 <ProfileMenu user={currentUser} onSignOut={handleSignOut} />
               </div>
+            ) : (
+              <button 
+                onClick={() => navigate("/auth?mode=login&role=public-user")}
+                className="pointer-events-auto text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-foreground transition-colors backdrop-blur-md"
+              >
+                Sign In
+              </button>
             )}
           </div>
 

@@ -27,8 +27,23 @@ export function setupTelegramBot(db) {
   // Handle /start and /help commands
   bot.onText(/\/(start|help)/, (msg) => {
     const chatId = msg.chat.id;
-    const response = `Welcome to TransitFlow Bot! 🚌\n\nTo find a bus, just send me a message like:\n"Where is bus 25P?"\nor simply send the bus code, like "25P" or "ST12".`;
+    const response = `Welcome to TransitFlow Bot! 🚌\n\nTo find a bus, just send me a message like:\n"Where is bus 25P?"\nor simply send the bus code, like "25P" or "ST12".\n\nYou can also use /routes to see all available routes.`;
     bot.sendMessage(chatId, response);
+  });
+
+  // Handle /routes command
+  bot.onText(/\/routes/, (msg) => {
+    const chatId = msg.chat.id;
+    
+    // Extract unique bus codes from db.vehicles
+    const uniqueRoutes = [...new Set(db.vehicles.map(v => v.busCode))].sort();
+    const routeList = uniqueRoutes.map(code => {
+      const vehicle = db.vehicles.find(v => v.busCode === code);
+      return `🚌 *${code}* - ${vehicle.routeName}`;
+    }).join('\n');
+    
+    const response = `*Available Bus Routes:*\n\n${routeList}\n\nSend a bus code (e.g. 25P) to find its live location!`;
+    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
   });
 
   // Handle all other messages
@@ -36,8 +51,11 @@ export function setupTelegramBot(db) {
     const chatId = msg.chat.id;
     const text = msg.text;
 
-    // Ignore commands like /start
+    // Ignore commands like /start, /help, /routes
     if (!text || text.startsWith('/')) {
+      if (text && !text.match(/\/(start|help|routes)/)) {
+        bot.sendMessage(chatId, `Unknown command. Try /help or /routes.`);
+      }
       return;
     }
 
@@ -86,14 +104,16 @@ export function setupTelegramBot(db) {
       }
 
       const latestLocation = data[0];
-      const googleMapsLink = `https://www.google.com/maps?q=${latestLocation.latitude},${latestLocation.longitude}`;
+      // Defaulting back to localhost. If Telegram doesn't hyperlink it, it will need to be copy-pasted locally.
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const trackingLink = `${frontendUrl}/public?bus=${targetBusCode}`;
       
       // Calculate a rough "time ago" string
       const msAgo = Date.now() - new Date(latestLocation.last_seen).getTime();
       const minutesAgo = Math.floor(msAgo / 60000);
       const timeString = minutesAgo <= 1 ? "Just now" : `${minutesAgo} minutes ago`;
 
-      const response = `🚌 *Bus ${targetVehicle.busCode}*\nRoute: ${targetVehicle.routeName}\n\n📍 Last seen: ${timeString}\nSpeed: ${latestLocation.speedKmh || 0} km/h\n\nMap Link: ${googleMapsLink}`;
+      const response = `🚌 *Bus ${targetVehicle.busCode}*\nRoute: ${targetVehicle.routeName}\n\n📍 Last seen: ${timeString}\nSpeed: ${latestLocation.speedKmh || 0} km/h\n\n🟢 Live Tracking Link:\n${trackingLink}`;
 
       bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
     } catch (error) {
