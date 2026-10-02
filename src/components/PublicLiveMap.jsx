@@ -497,7 +497,7 @@ export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation,
           <Polyline
             positions={[
               [userLocation.latitude, userLocation.longitude],
-              [nearestStopToUser.lat, nearestStopToUser.lon],
+              [nearestStopToUser.lat, nearestStopToUser.lng || nearestStopToUser.lon],
             ]}
             pathOptions={{ color: '#93c5fd', weight: 2, opacity: 0.7, dashArray: '6, 8' }}
           />
