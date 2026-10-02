@@ -374,7 +374,7 @@ const walkCache = loadWalkCache();
  * or null on failure.
  */
 export async function fetchWalkingRoute(fromLat, fromLon, toLat, toLon) {
-  const key = `${fromLat.toFixed(5)},${fromLon.toFixed(5)}_${toLat.toFixed(5)},${toLon.toFixed(5)}`;
+  const key = `walk_v2_${fromLat.toFixed(5)},${fromLon.toFixed(5)}_${toLat.toFixed(5)},${toLon.toFixed(5)}`;
   if (walkCache.has(key)) return walkCache.get(key);
 
   try {
@@ -390,10 +390,16 @@ export async function fetchWalkingRoute(fromLat, fromLon, toLat, toLon) {
 
     const route = json.routes[0];
     const coords = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+    const distanceM = Math.round(route.distance);
+    
+    // The public OSRM /foot API currently has a bug where it returns driving durations.
+    // Calculate walking duration manually using average walking speed (1.4 m/s or ~5 km/h).
+    const durationS = Math.round(distanceM / 1.4);
+
     const result = {
       coords,
-      distanceM: Math.round(route.distance),
-      durationS: Math.round(route.duration),
+      distanceM,
+      durationS,
     };
     walkCache.set(key, result);
     saveWalkCache(walkCache);
