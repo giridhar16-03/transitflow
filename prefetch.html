@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TransitFlow Route Prefetcher</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; max-width: 600px; margin: auto; }
+    #log { background: #f4f4f4; padding: 1rem; height: 300px; overflow-y: auto; font-family: monospace; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3b82f6; color: white; border: none; border-radius: 4px; }
+    button:disabled { background: #ccc; }
+  </style>
+</head>
+<body>
+  <h1>Route Prefetcher</h1>
+  <p>Since Node.js scripts are being blocked by the OpenStreetMap API, we can fetch the routes directly through the browser instead.</p>
+  <button id="startBtn">Start Fetching Routes</button>
+  <button id="downloadBtn" style="display: none; background: #22c55e;">Download precomputedRoutes.js</button>
+  
+  <div id="log">Waiting to start...</div>
+
+  <script type="module">
+    import VIZAG_ROUTES, { fetchRouteGeometry } from './src/data/vizagRoutes.js';
+
+    const logEl = document.getElementById('log');
+    const startBtn = document.getElementById('startBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    
+    function log(msg) {
+      logEl.innerHTML += `<div>${msg}</div>`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    let finalData = {};
+
+    startBtn.onclick = async () => {
+      startBtn.disabled = true;
+      log(`Starting to fetch ${VIZAG_ROUTES.length} routes...`);
+      
+      for (let i = 0; i < VIZAG_ROUTES.length; i++) {
+        const route = VIZAG_ROUTES[i];
+        log(`[${i+1}/${VIZAG_ROUTES.length}] Fetching ${route.routeNumber}...`);
+        
+        try {
+          // Add a delay to avoid rate limits
+          if (i > 0) await new Promise(r => setTimeout(r, 2000));
+          
+          const data = await fetchRouteGeometry(route.osmRelationId);
+          finalData[route.osmRelationId] = data;
+          log(`✅ Success ${route.routeNumber}`);
+        } catch (err) {
+          log(`❌ Error ${route.routeNumber}: ${err.message}`);
+        }
+      }
+
+      log('<b>Done! All routes fetched.</b>');
+      downloadBtn.style.display = 'inline-block';
+    };
+
+    downloadBtn.onclick = () => {
+      const content = 'export default ' + JSON.stringify(finalData, null, 2) + ';';
+      const blob = new Blob([content], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'precomputedRoutes.js';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+  </script>
+</body>
+</html>

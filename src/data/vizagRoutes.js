@@ -99,7 +99,11 @@ async function overpassFetch(query) {
       _lastOverpassRequest = Date.now();
 
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'TransitFlowApp/1.0 (transitflow@example.com)'
+          }
+        });
 
         if (res.status === 429 || res.status === 503) {
           const backoff = OVERPASS_BASE_BACKOFF_MS * Math.pow(2, attempt);
@@ -242,6 +246,8 @@ function saveRouteCache(cacheMap) {
 
 const routeCache = loadRouteCache();
 
+import precomputedRoutes from './precomputedRoutes.js';
+
 /**
  * Fetch route polyline + bus stops for an OSM route relation.
  * Results are cached persistently in localStorage so repeated clicks (even across sessions) are instant.
@@ -249,6 +255,10 @@ const routeCache = loadRouteCache();
  * Returns { coordinates: [[lat,lon],...], stops: [{ name, lat, lon },…] }
  */
 export async function fetchRouteGeometry(osmRelationId) {
+  if (precomputedRoutes && precomputedRoutes[osmRelationId]) {
+    return precomputedRoutes[osmRelationId];
+  }
+
   if (routeCache.has(osmRelationId)) return routeCache.get(osmRelationId);
 
   const query = [
