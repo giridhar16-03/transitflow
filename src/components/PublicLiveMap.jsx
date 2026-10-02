@@ -180,7 +180,8 @@ function MapControls({ mapRef, userLocation, selectedVehicle, allVehicles = [], 
     const points = [];
     if (userLocation?.latitude) points.push([userLocation.latitude, userLocation.longitude]);
     if (selectedVehicle) points.push([selectedVehicle.latitude, selectedVehicle.longitude]);
-    if (hasRoute && routeCoordinates?.length > 0) {
+    const hasRouteCoords = routeCoordinates && routeCoordinates.length > 1;
+    if (hasRouteCoords) {
       points.push(routeCoordinates[0], routeCoordinates[routeCoordinates.length - 1]);
     }
     if (stops?.length > 0) {

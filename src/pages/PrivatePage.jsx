@@ -175,10 +175,10 @@ export function PrivatePage() {
   // Extract stops logic
   const selectedRouteCoordinates = useMemo(() => {
     if (activeTab === "routes" && selectedRoute?.stops) {
-      return selectedRoute.stops.map(s => [s.lat, s.lng]);
+      return selectedRoute.stops.map(s => [s.lat, s.lng || s.lon]).filter(p => p[0] !== undefined && p[1] !== undefined);
     }
     if (activeTab === "live" && liveRouteInfo?.stops) {
-      return liveRouteInfo.stops.map(s => [s.lat, s.lng]);
+      return liveRouteInfo.stops.map(s => [s.lat, s.lng || s.lon]).filter(p => p[0] !== undefined && p[1] !== undefined);
     }
     return null;
   }, [activeTab, selectedRoute, liveRouteInfo]);
