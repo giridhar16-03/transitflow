@@ -217,6 +217,15 @@ export function PrivatePage() {
 
   useEffect(() => {
     setRoutePolyline(null);
+    if (!selectedRouteStops || selectedRouteStops.length < 2) return;
+    
+    let mounted = true;
+    fetchFullDrivingRoute(selectedRouteStops).then(coords => {
+      if (mounted && coords.length > 0) {
+        setRoutePolyline(coords);
+      }
+    });
+    return () => { mounted = false; };
   }, [selectedRouteStops]);
 
   // ── Loading screen ─────────────────────────────────────────────────────────

@@ -314,7 +314,7 @@ export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation,
     const fetchIt = async () => {
       const res = await fetchDrivingRoute(
          selectedVehicle.latitude, selectedVehicle.longitude,
-         nearestStopToUser.lat, nearestStopToUser.lon
+         nearestStopToUser.lat, nearestStopToUser.lng || nearestStopToUser.lon
       );
       if (!cancelled && res) {
          setDriverDrivePath(res);
@@ -333,7 +333,7 @@ export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation,
     setWalkLoading(true);
     fetchWalkingRoute(
       userLocation.latitude, userLocation.longitude,
-      nearestStopToUser.lat, nearestStopToUser.lon,
+      nearestStopToUser.lat, nearestStopToUser.lng || nearestStopToUser.lon,
     ).then((result) => {
       if (!cancelled) { setWalkPath(result); setWalkLoading(false); }
     }).catch(() => {
