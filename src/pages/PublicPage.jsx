@@ -13,6 +13,7 @@ import { supabase } from "../lib/supabase";
 import { clearStoredAuthAccess, getDashboardPath, getPreferredDisplayName } from "../lib/authAccess";
 import { haversineDistanceKm } from "../lib/tracking";
 import VIZAG_ROUTES, { searchRoutes, fetchRouteGeometry, findRouteByBusCode } from "../data/vizagRoutes.js";
+import { getScheduleByRoute } from "../data/apsrtc_schedules.js";
 
 const getRoutePoints = (routeName) => {
   if (!routeName || typeof routeName !== "string") return { from: "", to: "" };
@@ -53,6 +54,7 @@ export function PublicPage() {
   const [liveRouteInfo, setLiveRouteInfo] = useState(null);
   const [liveRouteLoading, setLiveRouteLoading] = useState(false);
   const [followBus, setFollowBus] = useState(true);
+  const [showFullSchedule, setShowFullSchedule] = useState(false);
   const searchInputRef = useRef(null);
 
   // ── Auth ───────────────────────────────────────────────────────────────────
@@ -118,6 +120,7 @@ export function PublicPage() {
 
   const handleViewRoute = useCallback(async (route) => {
     setSelectedRoute(route);
+    setShowFullSchedule(false);
     setRouteCoordinates(null);
     setRouteStops([]);
     setRouteError("");
@@ -652,21 +655,76 @@ export function PublicPage() {
                   <div className="text-sm font-bold truncate">{selectedRoute.routeName}</div>
                 </div>
                 
-                <div className="text-xs text-muted-foreground mb-3">
-                  {routeStops.length > 0 ? (
-                    <span className="flex items-center gap-1 text-foreground font-medium"><MapPin className="h-3 w-3 text-blue-500"/> {routeStops.length} stops mapped</span>
-                  ) : loadingRoute ? (
-                    <span className="animate-pulse">Loading map data...</span>
-                  ) : (
-                    "No stop data available."
-                  )}
-                </div>
+                {(() => {
+                  const schedule = getScheduleByRoute(selectedRoute.routeNumber);
+                  return (
+                    <div className="text-xs text-muted-foreground mb-3 space-y-2">
+                      {schedule && (
+                         <div className="bg-secondary/40 rounded-lg p-2.5 border border-border/50">
+                           <div className="font-semibold text-foreground flex items-center gap-1.5 mb-1.5">
+                             <BusFront className="w-3.5 h-3.5 text-primary" /> {schedule.type}
+                           </div>
+                           <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-foreground/80">
+                             <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-blue-500" /> {schedule.distanceKm} km Journey</div>
+                             <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-amber-500" /> ~{schedule.durationMin} mins Est.</div>
+                           </div>
+                         </div>
+                      )}
+                      
+                      {routeStops.length > 0 ? (
+                        <span className="flex items-center gap-1 text-foreground font-medium"><MapPin className="h-3 w-3 text-blue-500"/> {routeStops.length} live stops mapped</span>
+                      ) : loadingRoute ? (
+                        <span className="animate-pulse">Loading map data...</span>
+                      ) : (
+                        <span>No stop data available.</span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {routeStops.length > 0 && (
-                  <div className="flex gap-2">
-                    <Button variant="default" className="w-full h-8 text-xs bg-primary/90 hover:bg-primary">
-                      View full schedule
+                  <div className="flex flex-col gap-2 mt-3 border-t border-white/5 pt-3">
+                    <Button variant="default" className="w-full h-8 text-xs bg-primary/90 hover:bg-primary transition-all shadow-sm" onClick={() => setShowFullSchedule(!showFullSchedule)}>
+                      {showFullSchedule ? "Hide full schedule" : "View full schedule"}
                     </Button>
+                    
+                    {showFullSchedule && (
+                      <div className="mt-2 max-h-48 overflow-y-auto space-y-0 p-2 pl-3 rounded-lg bg-black/10 shadow-inner border border-white/5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full">
+                        {(() => {
+                          const routeNameStr = selectedRoute?.routeName || "";
+                          const routeParts = routeNameStr.split(/ to | - | → /i);
+                          const origin = routeParts[0] || "Start Location";
+                          const dest = routeParts[1] || "End Location";
+                          const viaStops = selectedRoute?.via 
+                            ? (Array.isArray(selectedRoute.via) ? selectedRoute.via : selectedRoute.via.split(',')).map(s => String(s).trim())
+                            : [];
+                          
+                          // If OSM stops exist, we can use them as a fallback, but the user requested area names.
+                          // So we build a high-level list of stops: Origin -> Via1 -> Via2 -> Destination
+                          const displayStops = [origin, ...viaStops, dest].filter(Boolean);
+                          
+                          return displayStops.map((stopName, idx) => {
+                            const isLast = idx === displayStops.length - 1;
+                            const currentSchedule = getScheduleByRoute(selectedRoute.routeNumber);
+                            const estMins = currentSchedule ? Math.round((currentSchedule.durationMin / Math.max(1, displayStops.length - 1)) * idx) : 0;
+                            return (
+                              <div key={idx} className="flex gap-3 text-xs relative">
+                                {!isLast && <div className="absolute left-[5px] top-3.5 bottom-[-10px] w-[2px] bg-primary/30" />}
+                                <div className="shrink-0 mt-1 relative z-10 w-3 h-3 rounded-full bg-background border-[3px] border-primary" />
+                                <div className="flex-1 pb-3">
+                                  <div className="font-semibold text-foreground/90">{stopName}</div>
+                                  {currentSchedule && (
+                                    <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1 font-medium">
+                                      <Clock className="w-2.5 h-2.5" /> {idx === 0 ? "Start" : `+${estMins} mins`}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
                   </div>
                 )}
               </>

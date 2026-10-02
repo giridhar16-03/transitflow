@@ -416,11 +416,25 @@ export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation,
         )}
 
         {/* Bus stops — blue dots */}
-        {stops.map((stop, idx) => {
-          const isNearestUser = nearestStopToUser?.index === idx;
-          const isNearestDriver = driverStopInfo?.driverNearestStopIdx === idx;
-          return (
-            <Marker
+        {(() => {
+          let displayStops = [];
+          if (routeInfo && routeInfo.routeName) {
+            const routeParts = routeInfo.routeName.split(/ to | - | → /i);
+            const origin = routeParts[0] || "Start";
+            const dest = routeParts[1] || "End";
+            const viaStops = routeInfo.via ? (Array.isArray(routeInfo.via) ? routeInfo.via : routeInfo.via.split(',')).map(s => String(s).trim()) : [];
+            displayStops = [origin, ...viaStops, dest].filter(Boolean);
+          }
+          return stops.map((stop, idx) => {
+            const isNearestUser = nearestStopToUser?.index === idx;
+            const isNearestDriver = driverStopInfo?.driverNearestStopIdx === idx;
+            let displayName = stop.name;
+            if (displayName && displayName.startsWith("Stop ") && displayStops.length > 0) {
+              const mappedIdx = Math.min(Math.floor((idx / Math.max(1, stops.length - 1)) * displayStops.length), displayStops.length - 1);
+              displayName = displayStops[mappedIdx];
+            }
+            return (
+              <Marker
               key={`stop-${idx}`}
               position={[stop.lat, (stop.lng || stop.lon)]}
               icon={stopIcon(isNearestUser)}
@@ -429,7 +443,7 @@ export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation,
               <Popup minWidth={200}>
                 <div style={{ fontFamily: 'Inter, sans-serif' }}>
                   <div style={{ fontWeight: 700, color: isNearestUser ? '#1d4ed8' : '#111827', fontSize: 13, marginBottom: 4 }}>
-                    {stop.name}
+                    {displayName}
                   </div>
                   {isNearestUser && nearestStopToUser && (
                     <div style={{ color: '#1d4ed8', fontSize: 12, lineHeight: 1.5 }}>
@@ -456,12 +470,12 @@ export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation,
               </Popup>
               <Tooltip direction="right" offset={[12, 0]} permanent opacity={0.85}>
                 <span style={{ fontSize: 11, fontWeight: isNearestUser ? 700 : 500, color: isNearestUser ? '#1d4ed8' : '#374151' }}>
-                  {isNearestUser ? `Near · ${stop.name}` : stop.name}
+                  {isNearestUser ? `Near · ${displayName}` : displayName}
                 </span>
               </Tooltip>
             </Marker>
           );
-        })}
+        })})()}
 
         {/* Walking route from user → nearest stop */}
         {walkPath?.coords && walkPath.coords.length > 1 && (
