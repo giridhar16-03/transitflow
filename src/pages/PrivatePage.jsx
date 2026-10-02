@@ -216,19 +216,7 @@ export function PrivatePage() {
   const [routePolyline, setRoutePolyline] = useState(null);
 
   useEffect(() => {
-    let mounted = true;
-    if (selectedRouteStops && selectedRouteStops.length > 1) {
-      fetchFullDrivingRoute(selectedRouteStops).then(coords => {
-        if (mounted && coords && coords.length > 0) {
-          setRoutePolyline(coords);
-        } else if (mounted) {
-          setRoutePolyline(null);
-        }
-      });
-    } else {
-      setRoutePolyline(null);
-    }
-    return () => { mounted = false; };
+    setRoutePolyline(null);
   }, [selectedRouteStops]);
 
   // ── Loading screen ─────────────────────────────────────────────────────────

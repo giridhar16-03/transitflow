@@ -1,16 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+import fs from 'fs';
 
 const routesData = {
   "A": { name: "KURMANNAPALEM", time: "6:45am", stops: ["Kurmannapalem", "Vadlapudi", "Srinagar", "Gajuwaka Police Station", "R.K.Hospital", "Panthulu Gari Meda", "BHPV", "Sheelanagar", "Airport", "Gopalapatnam Police Station", "Simhachalam Depot", "Srinivasa Nagar", "Goshala", "Simhachalam Complex", "Adivivaram", "Gudilova", "Anandapuram"] },
@@ -39,128 +27,36 @@ const routesData = {
   "X": { name: "S KOTA", time: "7:15am", stops: ["S.Kota Complex", "Devi Gudi Jn", "Krishnapuram Jn", "Pavada Jn", "Jagaram", "Jami", "Bheemasingi", "Sugar Factory"] }
 };
 
-async function seed() {
-  console.log("Creating Admin User...");
-  const adminEmail = "mvgr-admin3@mvgr.edu.in";
-  const adminPassword = "mvgrpassword123";
+const uniqueStops = [...new Set(Object.values(routesData).flatMap(r => r.stops))];
+const coordinates = {};
 
-  // 1. Create Auth User
-  const { data: userData, error: userError } = await supabase.auth.admin.createUser({
-    email: adminEmail,
-    password: adminPassword,
-    email_confirm: true,
-    user_metadata: { role: 'private-admin', full_name: 'MVGR Admin' }
-  });
-
-  if (userError && !userError.message.includes("already been registered") && !userError.message.includes("User already registered")) {
-    console.error("Error creating user:", userError);
-    return;
-  }
-
-  // Get user ID
-  let userId;
-  if (userData?.user?.id) {
-    userId = userData.user.id;
-  } else {
-    const { data: users } = await supabase.from("auth_accounts").select("user_id").eq("email", adminEmail).single();
-    userId = users?.user_id;
-  }
-
-  if (!userId) {
-    const { data: users } = await supabase.from("auth_accounts").select("user_id").eq("email", adminEmail).single();
-    userId = users?.user_id;
-    if (!userId) {
-      console.log("Could not find/create user ID");
-      return;
+async function geocode() {
+  for (const stop of uniqueStops) {
+    try {
+      // Append Vizianagaram or Visakhapatnam to improve accuracy
+      const query = encodeURIComponent(`${stop}, Andhra Pradesh, India`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`, {
+        headers: { 'User-Agent': 'TransitFlow-MVGR/1.0' }
+      });
+      const data = await res.json();
+      if (data && data.length > 0) {
+        coordinates[stop] = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        console.log(`[OK] ${stop} -> ${data[0].lat}, ${data[0].lon}`);
+      } else {
+        console.log(`[FAIL] ${stop} - using default`);
+        // Fallback to a location in Vizag if not found
+        coordinates[stop] = { lat: 17.6868 + (Math.random()*0.1), lng: 83.2185 + (Math.random()*0.1) };
+      }
+      // Delay to respect Nominatim limits
+      await new Promise(r => setTimeout(r, 1000));
+    } catch (e) {
+      console.log(`[ERR] ${stop} - using default`);
+      coordinates[stop] = { lat: 17.6868, lng: 83.2185 };
     }
   }
   
-  // Update auth_accounts explicitly just in case trigger missed it
-  await supabase.from("auth_accounts").upsert({
-    user_id: userId,
-    email: adminEmail,
-    role: "private-admin",
-    display_name: "MVGR Admin",
-    has_password: true,
-    provider: "password"
-  }, { onConflict: "user_id" });
-
-  console.log("User ID:", userId);
-
-  // 2. Create Institution
-  const institutionCode = "MVGR-003";
-  const accessCode = "MVGRPASS";
-  
-  const { data: instData, error: instError } = await supabase.from("institutions").upsert({
-    owner_user_id: userId,
-    name: "MVGR College of Engineering",
-    institution_name: "MVGR College of Engineering",
-    institution_type: "College",
-    contact_person: "MVGR Admin",
-    email: adminEmail,
-    phone_number: "9999999999",
-    institution_code: institutionCode,
-    access_code: accessCode,
-  }, { onConflict: "owner_user_id" }).select("id").single();
-
-  if (instError) {
-    console.error("Error creating institution:", instError);
-    return;
-  }
-  
-  const institutionId = instData.id;
-  console.log("Institution created with ID:", institutionId);
-
-  // Add to institution_users
-  await supabase.from("institution_users").upsert({
-    user_id: userId,
-    institution_id: institutionId,
-    role: "private_institution_admin"
-  }, { onConflict: "user_id, institution_id" });
-
-
-  // 3. Insert Routes
-  console.log("Inserting Routes...");
-  for (const [code, details] of Object.entries(routesData)) {
-    // Generate a unique driver access code
-    const driverAccessCode = `MVGR-${code}-${Math.floor(1000 + Math.random() * 9000)}`;
-    
-    // Format stops as expected by the DB: JSON array of objects
-    // Since we don't have lat/lng, we'll give them a default of 17.6868, 83.2185 (Vizag center) and let the admin move them
-    let latOffset = 0;
-    const formattedStops = details.stops.map((stopName, idx) => {
-      latOffset += 0.001; // Just offset slightly so they don't perfectly stack
-      return {
-        name: stopName,
-        lat: 17.6868 + latOffset,
-        lng: 83.2185 + latOffset
-      };
-    });
-
-    const routePayload = {
-      institution_id: institutionId,
-      driver_access_code: driverAccessCode,
-      bus_number: code,
-      route_name: `${details.name} (${details.time})`,
-      stops: formattedStops,
-      public_mode: false
-    };
-
-    const { error: routeError } = await supabase.from("routes").insert(routePayload);
-    if (routeError) {
-      console.error(`Error inserting route ${code}:`, routeError);
-    } else {
-      console.log(`Inserted Route ${code} | Route Name: ${details.name} | Driver Code: ${driverAccessCode}`);
-    }
-  }
-
-  console.log("Done! MVGR Setup Complete.");
-  console.log("-----------------------------------------");
-  console.log("Admin Email: admin@mvgr.edu.in");
-  console.log("Admin Password: mvgrpassword");
-  console.log("Institution Code: MVGR-001");
-  console.log("Private User Access Code: MVGRPASS");
-  console.log("-----------------------------------------");
+  fs.writeFileSync('mvgr_coordinates.json', JSON.stringify(coordinates, null, 2));
+  console.log("Done geocoding.");
 }
 
-seed().catch(console.error);
+geocode();
