@@ -9,6 +9,13 @@ export function setupTelegramBot(db) {
     return;
   }
 
+  // Prevent local dev server from deleting the production webhook!
+  if (process.env.NODE_ENV === 'production' || process.env.START_LOCAL_BOT !== 'true') {
+    console.warn("Local Telegram Bot polling is disabled by default to prevent breaking the live webhook.");
+    console.warn("If you want to test the bot locally, add START_LOCAL_BOT=true to your .env file.");
+    return;
+  }
+
   // Initialize the bot (polling mode)
   const bot = new TelegramBot(token, { polling: true });
 
