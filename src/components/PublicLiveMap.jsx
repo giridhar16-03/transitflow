@@ -31,9 +31,13 @@ function formatDistance(metres) {
 }
 
 function estimateBusEtaMin(distanceMetres) {
-  // City bus average ~20 km/h in traffic
-  const speedMps = 20 * 1000 / 3600;
-  const seconds = distanceMetres / speedMps;
+  // Apply a Detour Index of 1.4 to account for road network geometry vs straight-line
+  const roadDistanceMetres = distanceMetres * 1.4;
+  
+  // City bus average ~15 km/h in heavy traffic with frequent stops
+  const speedMps = 15 * 1000 / 3600;
+  
+  const seconds = roadDistanceMetres / speedMps;
   return Math.max(1, Math.round(seconds / 60));
 }
 
@@ -279,8 +283,8 @@ export function PublicLiveMap({ selectedVehicle, allVehicles = [], userLocation,
 
     if (driverDrivePath) {
        distToUserStopM = driverDrivePath.distanceM;
-       // Bus usually takes longer than a normal car routing due to stops and size
-       etaMin = Math.max(1, Math.round((driverDrivePath.durationS * 1.5) / 60));
+       // Bus usually takes longer than a normal car routing due to stops and size (30% penalty)
+       etaMin = Math.max(1, Math.round((driverDrivePath.durationS * 1.3) / 60));
     } else {
        distToUserStopM = Math.round(haversineDist(
          selectedVehicle.latitude, selectedVehicle.longitude,
