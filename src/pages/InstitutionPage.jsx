@@ -165,6 +165,9 @@ export function InstitutionPage() {
   const [busForm, setBusForm] = useState({ busCode: "", routeName: "" });
   const [stops, setStops] = useState([]);
   const [createRouteCoords, setCreateRouteCoords] = useState([]);
+  
+  const [selectedRouteId, setSelectedRouteId] = useState(null);
+  const [fleetRouteCoords, setFleetRouteCoords] = useState([]);
 
   useEffect(() => {
     if (!currentUser || !supabase) return;
@@ -265,6 +268,25 @@ export function InstitutionPage() {
     }
     return () => { mounted = false; };
   }, [stops, activeTab]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (activeTab === "fleet" && selectedRouteId) {
+      const route = routes.find(r => r.id === selectedRouteId);
+      if (route && route.stops && route.stops.length > 1) {
+        fetchFullDrivingRoute(route.stops).then(coords => {
+          if (mounted && coords && coords.length > 0) {
+            setFleetRouteCoords(coords);
+          }
+        });
+      } else {
+        setFleetRouteCoords([]);
+      }
+    } else {
+      setFleetRouteCoords([]);
+    }
+    return () => { mounted = false; };
+  }, [selectedRouteId, activeTab, routes]);
 
   const undoLastStop = () => {
     setStops((prev) => prev.slice(0, -1));
@@ -431,9 +453,16 @@ export function InstitutionPage() {
           {/* Render fleet routes if viewing fleet */}
           {activeTab === "fleet" && routes.map((route, i) => {
             if (!route.stops || route.stops.length === 0) return null;
+            if (selectedRouteId && route.id !== selectedRouteId) return null;
+            if (!selectedRouteId) return null; // Hide all lines when no bus is selected
+
             return (
               <div key={i}>
-                <Polyline positions={route.stops.map(s => [s.lat, s.lng])} color="#8b5cf6" weight={4} opacity={0.6} />
+                {fleetRouteCoords.length > 1 ? (
+                  <Polyline positions={fleetRouteCoords} color="#8b5cf6" weight={4} opacity={0.6} />
+                ) : (
+                  <Polyline positions={route.stops.map(s => [s.lat, s.lng])} color="#8b5cf6" weight={4} opacity={0.6} dashArray="5, 10" />
+                )}
                 {route.stops.map((stop, idx) => (
                   <Marker key={`${i}-${idx}`} position={[stop.lat, stop.lng]} opacity={0.7}>
                      <Popup>{route.bus_number}: {stop.name || `Stop ${idx + 1}`}</Popup>
@@ -517,14 +546,18 @@ export function InstitutionPage() {
                 </div>
               ) : (
                 routes.map((route) => (
-                  <div key={route.id} className="w-full rounded-xl transition-all duration-200 group p-3 bg-background/60 border border-border shadow-sm hover:bg-background/80 flex flex-col gap-3">
-                    <div className="flex justify-between items-start">
+                  <button 
+                    key={route.id} 
+                    onClick={() => setSelectedRouteId(route.id === selectedRouteId ? null : route.id)}
+                    className={`w-full text-left rounded-xl transition-all duration-200 group p-3 border shadow-sm flex flex-col gap-3 ${selectedRouteId === route.id ? 'bg-primary/10 border-primary/30' : 'bg-background/60 hover:bg-background/80 border-border'}`}
+                  >
+                    <div className="flex justify-between items-start w-full">
                       <div className="flex items-center gap-3">
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 border border-primary/20 text-primary font-bold shadow-sm">
+                        <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg font-bold shadow-sm ${selectedRouteId === route.id ? 'bg-primary text-primary-foreground' : 'bg-primary/10 border border-primary/20 text-primary'}`}>
                           {route.bus_number || "Bus"}
                         </div>
                         <div>
-                          <div className="text-sm font-semibold leading-tight text-foreground">
+                          <div className={`text-sm font-semibold leading-tight ${selectedRouteId === route.id ? 'text-primary' : 'text-foreground'}`}>
                             {route.route_name}
                           </div>
                           <div className="text-[11px] font-medium text-muted-foreground mt-0.5 flex items-center gap-1">
@@ -532,23 +565,23 @@ export function InstitutionPage() {
                           </div>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => startEditRoute(route)}
-                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); startEditRoute(route); }}
+                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
                         title="Edit Route"
                       >
                         <Edit2 className="h-4 w-4" />
-                      </button>
+                      </div>
                     </div>
                     {route.driver_access_code && (
-                      <div className="rounded-lg bg-secondary/80 p-2.5 flex items-center justify-between border border-border">
+                      <div className="rounded-lg bg-secondary/80 p-2.5 flex items-center justify-between border border-border w-full">
                         <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Driver Code</div>
                         <code className="font-mono text-sm font-bold text-primary select-all">
                           {route.driver_access_code}
                         </code>
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))
               )}
             </div>
